@@ -257,7 +257,7 @@ def webhook():
                     })
                     estados_usuarios.pop(chat_id)
 
-    return '', 200"
+    return '', 200
 
 def mostrar_menu(chat_id):
     teclado = {
