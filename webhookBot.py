@@ -259,7 +259,7 @@ def webhook():
                     # Crear y enviar resumen simple al grupo
                     resumen_simple = "*Tránsito 📋*\n"
                     for r in estado["reportes"]:
-                        producto = r["producto 🫘"]
+                        producto = r["producto"]
                         medida = r["medida"]
                         mercado = r["mercado"]
                         canastas = int(r["canastas"])
