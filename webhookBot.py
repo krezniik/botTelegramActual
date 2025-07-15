@@ -12,7 +12,7 @@ estados_usuarios = {}
 def index():
     return "Bot de tránsito activo 🚀"
 
-@app.route(f"/webhook/{TOKEN_TELEGRAM}", methods=["POST"])
+@app.route("/webhook", methods=["POST"])
 def webhook():
     update = request.get_json()
 
