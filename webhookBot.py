@@ -15,6 +15,11 @@ def index():
 @app.route("/webhook", methods=["POST"])
 def webhook():
     update = request.get_json()
+    print(update)
+
+    process_update(update)
+
+    return '', 200
 
     if "message" in update:
         message = update["message"]
