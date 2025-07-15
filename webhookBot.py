@@ -242,7 +242,7 @@ def webhook():
                         cajas = canastas * cajas_por_pin
                         texto += (
                             f"\n📦 *Lote {idx}*\n"
-                            f"🔹 Llenadora: {r['llenadora']}\n"
+                            f"⚙️ Llenadora: {r['llenadora']}\n"
                             f"📏 Medida: {medida}\n"
                             f"🍲 Producto: {r['producto']}\n"
                             f"🌎 Mercado: {r['mercado']}\n"
@@ -255,6 +255,27 @@ def webhook():
                         "text": texto,
                         "parse_mode": "Markdown"
                     })
+
+                    # Crear y enviar resumen simple al grupo
+                    resumen_simple = "*Tránsito 📋*\n"
+                    for r in estado["reportes"]:
+                        producto = r["producto "]
+                        medida = r["medida"]
+                        mercado = r["mercado"]
+                        canastas = int(r["canastas"])
+                        pin = r["pin"]
+                        cajas_por_pin = cajas_por_canasta.get(medida, {}).get(pin, 0)
+                        total_cajas = int(canastas * cajas_por_pin)
+
+                        resumen_simple *= f"\n{producto 🫘} {medida} {mercado}\n*{total_cajas:,} cajas 📦*"
+
+                    # Enviar al grupo de Telegram
+                    requests.post(f"{API_URL}/sendMessage", json={
+                        "chat_id": -1002710248563,
+                        "text": resumen_simple,
+                        "parse_mode": "Markdown"
+                    })
+                    
                     estados_usuarios.pop(chat_id)
 
     return '', 200
