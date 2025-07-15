@@ -5,6 +5,10 @@ from flask import Flask, request
 app = Flask(__name__)
 
 TOKEN_TELEGRAM = os.getenv("BOT_TOKEN")
+if not TOKEN_TELEGRAM:
+    raise ValueError("La variable de entorno BOT_TOKEN no está definida")
+
+
 API_URL = f"https://api.telegram.org/bot{TOKEN_TELEGRAM}"
 estados_usuarios = {}
 
@@ -16,10 +20,6 @@ def index():
 def webhook():
     update = request.get_json()
     print(update)
-
-    process_update(update)
-
-    return '', 200
 
     if "message" in update:
         message = update["message"]
@@ -257,7 +257,7 @@ def webhook():
                     })
                     estados_usuarios.pop(chat_id)
 
-    return "OK"
+    return '', 200"
 
 def mostrar_menu(chat_id):
     teclado = {
@@ -286,8 +286,6 @@ def mostrar_llenadoras(chat_id):
         "reply_markup": teclado
     })
 
-if __name__ == "__main__":
-    app.run(debug=True)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
