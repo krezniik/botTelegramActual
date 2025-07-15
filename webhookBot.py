@@ -267,7 +267,9 @@ def webhook():
                         cajas_por_pin = cajas_por_canasta.get(medida, {}).get(pin, 0)
                         total_cajas = int(canastas * cajas_por_pin)
 
-                        resumen_simple += f"\n\n{producto + "🫘"} {medida} {mercado}\n*{total_cajas:,} cajas* 📦"
+                        bandera = "🇬🇹" if mercado == "RTCA" else "🇺🇸"
+
+                        resumen_simple += f"\n\n{producto + " 🫘"} {medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
 
                     # Enviar al grupo de Telegram
                     requests.post(f"{API_URL}/sendMessage", json={
