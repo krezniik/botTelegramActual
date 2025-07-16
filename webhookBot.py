@@ -264,9 +264,9 @@ def webhook():
                     for r in estado["reportes"]:
                         agrupado[r["llenadora"]].append(r)
 
-                    resumen_elegante = "✅ *Resumen del turno:*\n"
+                    resumen_elegante = "✅ *Tránsito 📋*\n"
                     for llenadora, lotes in agrupado.items():
-                        resumen_elegante += f"\n🔧 *{llenadora}*\n"
+                        resumen_elegante += f"\⚙️ *{llenadora}*"
                         total_cajas_llenadora = 0
                         for r in lotes:
                             producto = r["producto"]
@@ -283,7 +283,7 @@ def webhook():
                             resumen_elegante += (
                                 f"\n\n{producto + " 🫘"} \n{medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
                             )
-                        resumen_elegante += f"*Total: {total_cajas_llenadora:,} cajas* 📦\n"
+                        resumen_elegante += f"\n*Total: {total_cajas_llenadora:,} cajas* 📦\n"
 
                     # Guardar resumen elegante en estado
                     estado["resumen_final"] = resumen_elegante
