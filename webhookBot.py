@@ -132,8 +132,8 @@ def webhook():
                 productos = [
                     {"text": "FND", "callback_data": "producto_FND"},
                     {"text": "FRD", "callback_data": "producto_FRD"},
-                    {"text": "FRD Seda", "callback_data": "producto_FRS"},
-                    {"text": "FND Arreglados", "callback_data": "producto_FNA"},
+                    {"text": "FRD Seda", "callback_data": "producto_FRD Seda"},
+                    {"text": "FND Arreglados", "callback_data": "producto_FND Arreglados"},
                     {"text": "FND Picante Medio", "callback_data": "producto_FNP"},
                     {"text": "FRD Picante Medio", "callback_data": "producto_FRP"}
                 ]
