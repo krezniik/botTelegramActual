@@ -281,9 +281,10 @@ def webhook():
                             bandera = "🇬🇹" if mercado == "RTCA" else "🇺🇸"
                             
                             resumen_elegante += (
-                                f"\n\n{producto + " 🫘"} \n{medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
+                                f"{producto + " 🫘"} \n{medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
                             )
-                        resumen_elegante += f"\n*Total: {total_cajas_llenadora:,} cajas* 📦\n"
+                        if len(lotes) > 1:
+                            resumen_elegante += f"\n*Total: {total_cajas_llenadora:,} cajas* 📦\n"
 
                     # Guardar resumen elegante en estado
                     estado["resumen_final"] = resumen_elegante
