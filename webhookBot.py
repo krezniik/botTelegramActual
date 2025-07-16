@@ -300,11 +300,11 @@ def webhook():
                     })
                     
         elif callback_data == "enviar_grupo":
-            resumen_simple = estado.get("resumen_simple")
-            if resumen_simple:
+            resumen_final = estado.get("resumen_final")
+            if resumen_final:
                 requests.post(f"{API_URL}/sendMessage", json={
                     "chat_id": -1002710248563,
-                    "text": resumen_simple,
+                    "text": resumen_final,
                     "parse_mode": "Markdown"
                 })
             requests.post(f"{API_URL}/sendMessage", json={
