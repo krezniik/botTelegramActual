@@ -132,15 +132,15 @@ def webhook():
                 productos = [
                     {"text": "FND", "callback_data": "producto_FND"},
                     {"text": "FRD", "callback_data": "producto_FRD"},
-                    {"text": "FRD Seda", "callback_data": "producto_FRD Seda"},
-                    {"text": "FND Arreglados", "callback_data": "producto_FND Arreglados"},
-                    {"text": "FND Picante Medio", "callback_data": "producto_FNP"},
-                    {"text": "FRD Picante Medio", "callback_data": "producto_FRP"}
+                    {"text": "FRS", "callback_data": "producto_FRD Seda"},
+                    {"text": "FNA", "callback_data": "producto_FND Arreglados"},
+                    {"text": "FNP", "callback_data": "producto_FND Picante medio"},
+                    {"text": "FRP", "callback_data": "producto_FRD Picante medio"}
                 ]
 
                 if llenadora in ["M1", "Chub"]:
-                    productos.append({"text": "FND Entero", "callback_data": "producto_FNE"})
-                    productos.append({"text": "FRD Entero", "callback_data": "producto_FRE"})
+                    productos.append({"text": "FNE", "callback_data": "producto_FND Entero"})
+                    productos.append({"text": "FRE", "callback_data": "producto_FRD Entero"})
 
                 teclado_productos = {
                     "inline_keyboard": [productos[i:i+2] for i in range(0, len(productos), 2)]
