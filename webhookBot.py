@@ -266,7 +266,7 @@ def webhook():
 
                     resumen_elegante = "✅ *Tránsito 📋*\n"
                     for llenadora, lotes in agrupado.items():
-                        resumen_elegante += f"\⚙️ *{llenadora}*"
+                        resumen_elegante += f"\n⚙️ *{llenadora}*"
                         total_cajas_llenadora = 0
                         for r in lotes:
                             producto = r["producto"]
