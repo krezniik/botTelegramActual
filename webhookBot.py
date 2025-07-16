@@ -132,15 +132,15 @@ def webhook():
                 productos = [
                     {"text": "FND", "callback_data": "producto_FND"},
                     {"text": "FRD", "callback_data": "producto_FRD"},
-                    {"text": "FRS", "callback_data": "producto_FRS"},
-                    {"text": "FNA", "callback_data": "producto_FNA"},
-                    {"text": "FNP", "callback_data": "producto_FNP"},
-                    {"text": "FRP", "callback_data": "producto_FRP"}
+                    {"text": "FRD Seda", "callback_data": "producto_FRS"},
+                    {"text": "FND Arreglados", "callback_data": "producto_FNA"},
+                    {"text": "FND Picante Medio", "callback_data": "producto_FNP"},
+                    {"text": "FRD Picante Medio", "callback_data": "producto_FRP"}
                 ]
 
                 if llenadora in ["M1", "Chub"]:
-                    productos.append({"text": "FNE", "callback_data": "producto_FNE"})
-                    productos.append({"text": "FRE", "callback_data": "producto_FRE"})
+                    productos.append({"text": "FND Entero", "callback_data": "producto_FNE"})
+                    productos.append({"text": "FRD Entero", "callback_data": "producto_FRE"})
 
                 teclado_productos = {
                     "inline_keyboard": [productos[i:i+2] for i in range(0, len(productos), 2)]
@@ -241,7 +241,7 @@ def webhook():
                         cajas_por_pin = cajas_por_canasta.get(medida, {}).get(pin, 0)
                         cajas = canastas * cajas_por_pin
                         texto += (
-                            f"\n📦 *Lote {idx}*\n"
+                            f"\n*Lote {idx}*\n"
                             f"⚙️ Llenadora: {r['llenadora']}\n"
                             f"📏 Medida: {medida}\n"
                             f"🍲 Producto: {r['producto']}\n"
