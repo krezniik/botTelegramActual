@@ -256,29 +256,94 @@ def webhook():
                         "parse_mode": "Markdown"
                     })
 
-                    # Crear y enviar resumen simple al grupo
-                    resumen_simple = "*Tránsito 📋*"
+
+            #   AQUI COMIENZA ÚLTIMO CAMBIO REALIZADO
+            
+                    from collections import defaultdict
+                    agrupado = defaultdict(list)
                     for r in estado["reportes"]:
-                        producto = r["producto"]
-                        medida = r["medida"]
-                        mercado = r["mercado"]
-                        canastas = int(r["canastas"])
-                        pin = r["pin"]
-                        cajas_por_pin = cajas_por_canasta.get(medida, {}).get(pin, 0)
-                        total_cajas = int(canastas * cajas_por_pin)
+                        agrupado[r["llenadora"]].append(r)
 
-                        bandera = "🇬🇹" if mercado == "RTCA" else "🇺🇸"
+                    resumen_elegante = "✅ *Resumen del turno:*\n"
+                    for llenadora, lotes in agrupado.items():
+                        resumen_elegante += f"\n🔧 *{llenadora}*\n"
+                        total_cajas_llenadora = 0
+                        for r in lotes:
+                            medida = r["medida"]
+                            pin = r["pin"]
+                            canastas = int(r["canastas"])
+                            producto = r["producto"]
+                            mercado = r["mercado"]
+                            cajas_por_pin = cajas_por_canasta.get(medida, {}).get(pin, 0)
+                            cajas = canastas * cajas_por_pin
+                            total_cajas_llenadora += cajas
+                            resumen_elegante += (
+                                f"• {producto} {medida} {mercado} | 🧺 {canastas} | 🔩 {pin} | 📦 {cajas}\n"
+                            )
+                        resumen_elegante += f"*Total: {total_cajas_llenadora:,} cajas* 📦\n"
 
-                        resumen_simple += f"\n\n{producto + " 🫘"} \n{medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
+                    # Guardar resumen elegante en estado
+                    estado["resumen_final"] = resumen_elegante
 
-                    # Enviar al grupo de Telegram
+                    # Preguntar si se desea enviar al grupo
+                    teclado_confirmacion = {
+                        "inline_keyboard": [
+                            [{"text": "📤 Enviar al grupo", "callback_data": "enviar_grupo"},
+                             {"text": "❌ No enviar", "callback_data": "no_enviar"}]
+                        ]
+                    }
                     requests.post(f"{API_URL}/sendMessage", json={
-                        "chat_id": -1002710248563,
-                        "text": resumen_simple,
-                        "parse_mode": "Markdown"
+                        "chat_id": chat_id,
+                        "text": resumen_elegante + "\n¿Deseas enviar este resumen al grupo?",
+                        "parse_mode": "Markdown",
+                        "reply_markup": teclado_confirmacion
                     })
                     
-                    estados_usuarios.pop(chat_id)
+        elif callback_data == "enviar_grupo":
+            resumen_simple = estado.get("resumen_simple")
+            if resumen_simple:
+                requests.post(f"{API_URL}/sendMessage", json={
+                    "chat_id": -1002710248563,
+                    "text": resumen_simple,
+                    "parse_mode": "Markdown"
+                })
+            requests.post(f"{API_URL}/sendMessage", json={
+                "chat_id": chat_id,
+                "text": "✅ Resumen enviado al grupo."
+            })
+            estados_usuarios.pop(chat_id)
+
+        elif callback_data == "no_enviar":
+            requests.post(f"{API_URL}/sendMessage", json={
+                "chat_id": chat_id,
+                "text": "✅ Resumen guardado, no se enviará al grupo."
+            })
+            estados_usuarios.pop(chat_id)
+        #   AQUI TERMINA ULTIMO CAMBIO REALIZADO.
+        
+                    # Crear y enviar resumen simple al grupo
+                    #resumen_simple = "*Tránsito 📋*"
+                    #for r in estado["reportes"]:
+                        #producto = r["producto"]
+                        #medida = r["medida"]
+                        #mercado = r["mercado"]
+                        #canastas = int(r["canastas"])
+                        #pin = r["pin"]
+                        #cajas_por_pin = cajas_por_canasta.get(medida, {}).get(pin, 0)
+                        #total_cajas = int(canastas * cajas_por_pin)
+
+                        #bandera = "🇬🇹" if mercado == "RTCA" else "🇺🇸"
+
+                        #resumen_simple += f"\n\n{producto + " 🫘"} \n{medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
+
+                    # Enviar al grupo de Telegram
+                    #requests.post(f"{API_URL}/sendMessage", json={
+                        #"chat_id": -1002710248563,
+                        #"text": resumen_simple,
+                        #"parse_mode": "Markdown"
+                    #})
+                    
+                    #estados_usuarios.pop(chat_id)
 
     return '', 200
 
