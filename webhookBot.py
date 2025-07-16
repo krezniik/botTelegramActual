@@ -264,7 +264,7 @@ def webhook():
                     for r in estado["reportes"]:
                         agrupado[r["llenadora"]].append(r)
 
-                    resumen_elegante = "✅ *Tránsito 📋*\n"
+                    resumen_elegante = "*Tránsito 📋*\n"
                     for llenadora, lotes in agrupado.items():
                         resumen_elegante += f"\n⚙️ *{llenadora}*"
                         total_cajas_llenadora = 0
@@ -281,7 +281,7 @@ def webhook():
                             bandera = "🇬🇹" if mercado == "RTCA" else "🇺🇸"
                             
                             resumen_elegante += (
-                                f"{producto + " 🫘"} \n{medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
+                                f"\n{producto + " 🫘"} \n{medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
                             )
                         if len(lotes) > 1:
                             resumen_elegante += f"\n*Total: {total_cajas_llenadora:,} cajas* 📦\n"
