@@ -276,12 +276,12 @@ def webhook():
                             pin = r["pin"]
                             cajas_por_pin = cajas_por_canasta.get(medida, {}).get(pin, 0)
                             total_cajas = int(canastas * cajas_por_pin)
-                            total_cajas_llenadora += cajas
+                            total_cajas_llenadora += total_cajas
 
                             bandera = "🇬🇹" if mercado == "RTCA" else "🇺🇸"
                             
                             resumen_elegante += (
-                                f"\n{producto + " 🫘"} \n{medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
+                                f"\n{producto + " 🫘"} {medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
                             )
                         if len(lotes) > 1:
                             resumen_elegante += f"\n*Total: {total_cajas_llenadora:,} cajas* 📦\n"
