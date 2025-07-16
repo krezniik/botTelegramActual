@@ -269,7 +269,7 @@ def webhook():
 
                         bandera = "🇬🇹" if mercado == "RTCA" else "🇺🇸"
 
-                        resumen_simple += f"\n\n{producto + " 🫘"} {medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
+                        resumen_simple += f"\n\n{producto + " 🫘"} \n{medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
 
                     # Enviar al grupo de Telegram
                     requests.post(f"{API_URL}/sendMessage", json={
