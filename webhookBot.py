@@ -281,7 +281,7 @@ def webhook():
                             bandera = "🇬🇹" if mercado == "RTCA" else "🇺🇸"
                             
                             resumen_elegante += (
-                                f"\n{producto + " 🫘"} {medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦"
+                                f"\n{producto + " 🫘"} {medida} {mercado} {bandera}\n*{total_cajas:,} cajas* 📦\n"
                             )
                         if len(lotes) > 1:
                             resumen_elegante += f"\n*Total: {total_cajas_llenadora:,} cajas* 📦\n"
