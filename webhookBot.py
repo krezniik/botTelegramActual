@@ -1,6 +1,7 @@
 import os
 import requests
 from flask import Flask, request
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 app = Flask(__name__)
 
@@ -80,6 +81,19 @@ def webhook():
     elif "callback_query" in update:
         chat_id = update["callback_query"]["message"]["chat"]["id"]
         callback_data = update["callback_query"]["data"]
+                if callback_data == "menu_tiempos":
+                    mostrar_menu_tiempos(chat_id)
+
+                elif callback_data.startswith("tiempo_"):
+                    medida = callback_data.split("tiempo_")[1]
+                    mostrar_proceso_termico(chat_id, medida)
+
+                elif callback_data == "volver_menu":
+                    mostrar_menu(chat_id)
+
+                elif callback_data == "reiniciar_tiempos":
+                    mostrar_menu_tiempos(chat_id)
+
         estado = estados_usuarios.get(chat_id)
 
         if callback_data == "transito":
@@ -354,12 +368,13 @@ def webhook():
 def mostrar_menu(chat_id):
     teclado = {
         "inline_keyboard": [
-            [{"text": "📦 Reportar tránsito", "callback_data": "transito"}]
+            [{"text": "📦 Reportar tránsito", "callback_data": "transito"}],
+            [{"text": "🕒 Tiempos", "callback_data": "menu_tiempos"}]
         ]
     }
     requests.post(f"{API_URL}/sendMessage", json={
         "chat_id": chat_id,
-        "text": "Menú principal\n\n🛠️ Selecciona una herramienta:",
+        "text": "Menú principal\n\n🛠️ Selecciona una herramienta:",
         "reply_markup": teclado
     })
 
@@ -377,6 +392,76 @@ def mostrar_llenadoras(chat_id):
         "text": "Selecciona la llenadora:",
         "reply_markup": teclado
     })
+
+def mostrar_menu_tiempos(chat_id):
+    medidas = [
+        "4oz", "5.5oz", "8oz", "8oz_entero", "8oz_picante",
+        "14.1oz", "14.1oz_arreglado", "14.1oz_entero", "14.1oz_picante",
+        "16oz", "28oz", "28oz_entero", "35oz", "40oz", "4lb.1_chub", "80oz"
+    ]
+
+    teclado = {
+        "inline_keyboard": [
+            [{"text": m.replace("_", " "), "callback_data": f"tiempo_{m}"}] for m in medidas
+        ]
+    }
+
+    requests.post(f"{API_URL}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": "Selecciona la medida y tipo:",
+        "reply_markup": teclado
+    })
+
+
+def mostrar_proceso_termico(chat_id, medida):
+    procesos = {
+        "80oz": {
+            "pasos": [
+                (1, 90.0, 1.800, 6),
+                (2, 122.5, 2.400, 21),
+                (3, 122.5, 2.400, 5),
+                (4, 122.5, 2.400, 99),
+                (5, 122.5, 2.400, 37),
+                (6, 80.0, 2.400, 5),
+                (7, 40.0, 0.400, 20),
+                (8, 28.0, 0.100, 65),
+            ]
+        }
+        # Aquí irán los demás procesos...
+    }
+
+    if medida not in procesos:
+        requests.post(f"{API_URL}/sendMessage", json={
+            "chat_id": chat_id,
+            "text": "❌ Proceso no disponible aún."
+        })
+        return
+
+    pasos = procesos[medida]["pasos"]
+    total_min = sum(p[3] for p in pasos)
+    horas = total_min // 60
+    minutos = total_min % 60
+
+    texto = f"🧪 Proceso térmico para {medida.replace('_', ' ')}\n\n"
+    texto += "PASO | Temp (°C) | Presión (bar) | Tiempo (min)\n"
+    texto += "----------------------------------------------\n"
+    for paso in pasos:
+        texto += f" {paso[0]:<4}|  {paso[1]:<7} |    {paso[2]:<8}  |   {paso[3]}\n"
+    texto += f"\n⏱️ Tiempo total estimado: {total_min} minutos (~{horas}h {minutos}min)"
+
+    teclado = {
+        "inline_keyboard": [
+            [{"text": "🔄 Reiniciar herramienta", "callback_data": "reiniciar_tiempos"}],
+            [{"text": "↩️ Volver al menú principal", "callback_data": "volver_menu"}]
+        ]
+    }
+
+    requests.post(f"{API_URL}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": texto,
+        "reply_markup": teclado
+    })
+
 
 
 if __name__ == "__main__":
