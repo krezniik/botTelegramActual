@@ -885,18 +885,18 @@ def webhook():
     return '', 200
 
 def mostrar_menu(chat_id):
-    teclado = {
-        "inline_keyboard": [
-            [{"text": "📦 Reportar tránsito", "callback_data": "transito"}],
-            [{"text": "🕒 Ver Tiempos", "callback_data": "menu_tiempos"}]
-            [{"text": "📄 Trazabilidad", "callback_data": "trazabilidad"}]
-        ]
-    }
+    keyboard = [
+        [InlineKeyboardButton("📦 Reportar Tránsito", callback_data="menu_transito")],
+        [InlineKeyboardButton("🕒 Ver Tiempos", callback_data="menu_tiempos")],
+        [InlineKeyboardButton("📋 Trazabilidad", callback_data="trazabilidad")]
+    ]
+    markup = InlineKeyboardMarkup(keyboard)
     requests.post(f"{API_URL}/sendMessage", json={
         "chat_id": chat_id,
-        "text": "Menú principal\n\n🛠️ Selecciona una herramienta:",
-        "reply_markup": teclado
+        "text": "Selecciona una herramienta:",
+        "reply_markup": markup.to_dict()
     })
+
 
 def mostrar_llenadoras(chat_id):
     teclado = {
