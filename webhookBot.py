@@ -1015,5 +1015,13 @@ def mostrar_opciones_trazabilidad(chat_id):
         "reply_markup": teclado
 
     })
+
+def enviar_mensaje(chat_id, texto):
+    requests.post(f"{API_URL}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": texto
+    })
+
+    
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
