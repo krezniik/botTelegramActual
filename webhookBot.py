@@ -395,9 +395,9 @@ def mostrar_llenadoras(chat_id):
 
 def mostrar_menu_tiempos(chat_id):
     medidas = [
-        "4oz", "5.5oz", "8oz", "8oz_entero", "8oz_picante",
-        "14.1oz", "14.1oz_arreglado", "14.1oz_entero", "14.1oz_picante",
-        "16oz", "28oz", "28oz_entero", "35oz", "40oz", "4lb.1_chub", "80oz"
+        "4oz", "5.5 oz", "8 oz", "8 oz FDE", "8 oz FDP",
+        "14 oz", "14 oz FDA", "14.1 FDE", "14.1 oz FDP",
+        "16 oz", "28 oz", "28 oz FDE", "35 oz", "40 oz", "4lbs Chub", "80 oz"
     ]
 
     teclado = {
