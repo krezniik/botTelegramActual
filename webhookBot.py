@@ -32,6 +32,11 @@ def webhook():
         message = update["message"]
         chat_id = message["chat"]["id"]
         texto = message.get("text", "").strip()
+        estado = estados_usuarios.get(chat_id)
+
+        if texto == "/menu":
+            mostrar_menu(chat_id)
+        
         if estado:
             if estado["paso"] == "fin_llenado":
                 estado["registros_pendientes"][estado["registro_activo"]]["hora_fin_llenado"] = texto
@@ -72,11 +77,6 @@ def webhook():
                 })
 
 
-        
-        estado = estados_usuarios.get(chat_id)
-
-        if texto == "/menu":
-            mostrar_menu(chat_id)
 
         elif estado and estado["paso"] == "traza_medida":
             medida = texto
