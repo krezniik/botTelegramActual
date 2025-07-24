@@ -319,13 +319,12 @@ def webhook():
             enviar_mensaje(chat_id, "Has iniciado un nuevo registro de trazabilidad.")
 
         elif estado and estado.get("paso") == "medida_traza":
-            # lógica para medida_traza aquí
-
+            enviar_mensaje(chat_id, "Recibida medida para trazabilidad. Aún no hay lógica completa.")
+            
         elif callback_data == "traza_nuevo":
             estados_usuarios[chat_id] = {
                 "paso": "traza_medida",
                 "trazabilidad": {}
-                pass
             }
             medidas = ["4 oz", "8 oz", "14 oz", "16 oz", "28 oz", "35 oz", "40 oz", "80 oz"]
             teclado_medidas = {
