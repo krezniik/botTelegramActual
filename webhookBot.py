@@ -315,8 +315,9 @@ def webhook():
             mostrar_opciones_trazabilidad(chat_id)
 
         elif callback_data == "nuevo_trazabilidad":
-            estados_usuarios[chat_id] = {"paso": "inicio_traza"}
-            enviar_mensaje(chat_id, "Has iniciado un nuevo registro de trazabilidad.")
+            estados_usuarios[chat_id] = {"paso": "medida_traza"}
+            preguntar_medida_traza(chat_id)
+
 
         elif estado and estado.get("paso") == "medida_traza":
             enviar_mensaje(chat_id, "Recibida medida para trazabilidad. Aún no hay lógica completa.")
@@ -1021,6 +1022,22 @@ def enviar_mensaje(chat_id, texto):
         "chat_id": chat_id,
         "text": texto
     })
+
+def preguntar_medida_traza(chat_id):
+    keyboard = [
+        [InlineKeyboardButton("4oz", callback_data="traza_medida_4oz"),
+         InlineKeyboardButton("8oz", callback_data="traza_medida_8oz")],
+        [InlineKeyboardButton("15oz", callback_data="traza_medida_15oz"),
+         InlineKeyboardButton("4lbs", callback_data="traza_medida_4lbs")],
+        [InlineKeyboardButton("⬅️ Cancelar", callback_data="volver_menu")]
+    ]
+    markup = InlineKeyboardMarkup(keyboard)
+    requests.post(f"{API_URL}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": "Selecciona la medida del envase:",
+        "reply_markup": markup.to_dict()
+    })
+
 
     
 if __name__ == "__main__":
