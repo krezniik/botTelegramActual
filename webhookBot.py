@@ -450,7 +450,7 @@ def mostrar_proceso_termico(chat_id, medida):
     minutos = total_min % 60
 
     texto = f"🧪 Proceso térmico para {medida.replace('_', ' ')}\n\n"
-    texto += "PASO | Temp °C | Presión bar | Tiempo min\n"
+    texto += "PASO | °C | Bar | Min\n"
     texto += "----------------------------------------------\n"
     for paso in pasos:
         texto += f" {paso[0]:<4}|  {paso[1]:<7} |    {paso[2]:<8}  |   {paso[3]}\n"
