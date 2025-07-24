@@ -369,7 +369,7 @@ def mostrar_menu(chat_id):
     teclado = {
         "inline_keyboard": [
             [{"text": "📦 Reportar tránsito", "callback_data": "transito"}],
-            [{"text": "🕒 Tiempos", "callback_data": "menu_tiempos"}]
+            [{"text": "🕒 Ver Tiempos", "callback_data": "menu_tiempos"}]
         ]
     }
     requests.post(f"{API_URL}/sendMessage", json={
@@ -402,8 +402,15 @@ def mostrar_menu_tiempos(chat_id):
 
     teclado = {
         "inline_keyboard": [
-            [{"text": m.replace("_", " "), "callback_data": f"tiempo_{m}"}] for m in medidas
-        ]
+            [
+                {"text": medidas[i].replace("_", " "), "callback_data": f"tiempo_{medidas[i]}"},
+                {"text": medidas[i+1].replace("_", " "), "callback_data": f"tiempo_{medidas[i+1]}"}
+            ]
+            for i in range(0, len(medidas) - 1, 2)
+        ] + (
+            [[{"text": medidas[-1].replace("_", " "), "callback_data": f"tiempo_{medidas[-1]}"}]]
+            if len(medidas) % 2 == 1 else []
+        )
     }
 
     requests.post(f"{API_URL}/sendMessage", json={
@@ -443,7 +450,7 @@ def mostrar_proceso_termico(chat_id, medida):
     minutos = total_min % 60
 
     texto = f"🧪 Proceso térmico para {medida.replace('_', ' ')}\n\n"
-    texto += "PASO | Temp (°C) | Presión (bar) | Tiempo (min)\n"
+    texto += "PASO | Temp °C | Presión bar | Tiempo min\n"
     texto += "----------------------------------------------\n"
     for paso in pasos:
         texto += f" {paso[0]:<4}|  {paso[1]:<7} |    {paso[2]:<8}  |   {paso[3]}\n"
