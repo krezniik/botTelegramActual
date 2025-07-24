@@ -1008,7 +1008,7 @@ def mostrar_opciones_trazabilidad(chat_id):
 
     teclado = {"inline_keyboard": botones}
 
-    request.post(f"{API_URL}/sendMessage", json={
+    requests.post(f"{API_URL}/sendMessage", json={
         "chat_id": chat_id,
         "text": "📄 *Trazabilidad de autoclaves*\n\n¿Qué deseas hacer?",
         "parse_mode": "Markdown",
