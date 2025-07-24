@@ -422,7 +422,7 @@ def mostrar_menu_tiempos(chat_id):
 
 def mostrar_proceso_termico(chat_id, medida):
     procesos = {
-        "80oz": {
+        "80 oz": {
             "pasos": [
                 (1, 90.0, 1.800, 6),
                 (2, 122.5, 2.400, 21),
