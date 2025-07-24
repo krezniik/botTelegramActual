@@ -81,18 +81,18 @@ def webhook():
     elif "callback_query" in update:
         chat_id = update["callback_query"]["message"]["chat"]["id"]
         callback_data = update["callback_query"]["data"]
-                if callback_data == "menu_tiempos":
-                    mostrar_menu_tiempos(chat_id)
+        if callback_data == "menu_tiempos":
+            mostrar_menu_tiempos(chat_id)
 
-                elif callback_data.startswith("tiempo_"):
-                    medida = callback_data.split("tiempo_")[1]
-                    mostrar_proceso_termico(chat_id, medida)
+        elif callback_data.startswith("tiempo_"):
+            medida = callback_data.split("tiempo_")[1]
+            mostrar_proceso_termico(chat_id, medida)
 
-                elif callback_data == "volver_menu":
-                    mostrar_menu(chat_id)
+        elif callback_data == "volver_menu":
+            mostrar_menu(chat_id)
 
-                elif callback_data == "reiniciar_tiempos":
-                    mostrar_menu_tiempos(chat_id)
+        elif callback_data == "reiniciar_tiempos":
+            mostrar_menu_tiempos(chat_id)
 
         estado = estados_usuarios.get(chat_id)
 
