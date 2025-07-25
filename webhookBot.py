@@ -378,6 +378,83 @@ def mostrar_llenadoras(chat_id):
         "reply_markup": teclado
     })
 
+def mostrar_menu_tiempos(chat_id):
+    medidas = [
+        "4oz", "5.5 oz", "8 oz", "8 oz Entero", "8 oz Picante",
+        "14 oz", "14 oz Arreglado", "14.1 Entero", "14.1 oz Picante",
+        "16 oz", "28 oz", "28 oz Entero", "35 oz", "40 oz", "4lbs Chub", "80 oz"
+    ]
+
+    teclado = {
+        "inline_keyboard": [
+            [
+                {"text": medidas[i].replace("_", " "), "callback_data": f"tiempo_{medidas[i]}"},
+                {"text": medidas[i+1].replace("_", " "), "callback_data": f"tiempo_{medidas[i+1]}"}
+            ]
+            for i in range(0, len(medidas) - 1, 2)
+        ] + (
+            [[{"text": medidas[-1].replace("_", " "), "callback_data": f"tiempo_{medidas[-1]}"}]]
+            if len(medidas) % 2 == 1 else []
+        )
+    }
+
+    requests.post(f"{API_URL}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": "Selecciona la medida y tipo:",
+        "reply_markup": teclado
+    })
+
+
+def mostrar_proceso_termico(chat_id, medida):
+    procesos = {
+        "80 oz": {
+            "pasos": [
+                (1, 90.0, 1.800, 6),
+                (2, 122.5, 2.400, 21),
+                (3, 122.5, 2.400, 5),
+                (4, 122.5, 2.400, 99),
+                (5, 122.5, 2.400, 37),
+                (6, 80.0, 2.400, 5),
+                (7, 40.0, 0.400, 20),
+                (8, 28.0, 0.100, 65),
+            ]
+        }
+        # Aquí irán los demás procesos...
+    }
+
+    if medida not in procesos:
+        requests.post(f"{API_URL}/sendMessage", json={
+            "chat_id": chat_id,
+            "text": "❌ Proceso no disponible aún."
+        })
+        return
+
+    pasos = procesos[medida]["pasos"]
+    total_min = sum(p[3] for p in pasos)
+    horas = total_min // 60
+    minutos = total_min % 60
+
+    texto = f"🧪 Proceso térmico para {medida.replace('_', ' ')}\n\n"
+    texto += "PASO | °C | Bar | Min\n"
+    texto += "----------------------------------------------\n"
+    for paso in pasos:
+        texto += f" {paso[0]:<4}|  {paso[1]:<7} |    {paso[2]:<8}  |   {paso[3]}\n"
+    texto += f"\n⏱️ Tiempo total estimado: {total_min} minutos (~{horas}h {minutos}min)"
+
+    teclado = {
+        "inline_keyboard": [
+            [{"text": "🔄 Reiniciar herramienta", "callback_data": "reiniciar_tiempos"}],
+            [{"text": "↩️ Volver al menú principal", "callback_data": "volver_menu"}]
+        ]
+    }
+
+    requests.post(f"{API_URL}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": texto,
+        "reply_markup": teclado
+    })
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
