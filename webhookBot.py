@@ -38,7 +38,7 @@ def webhook():
                 llenadora = estado.get("llenadora")
 
                 if llenadora == "Chub":
-                    estado["pin"] = "único"
+                    estado["pin"] = "único"
                     estado["paso"] = "otro_lote"
                 elif llenadora == "M3":
                     estado["pin"] = "grande"
@@ -49,60 +49,59 @@ def webhook():
                 if estado["paso"] == "pin":
                     teclado = {
                         "inline_keyboard": [
-                            [{"text": "🔩 Pin Pequeño", "callback_data": "pin_pequeño"},
+                            [{"text": "🔩 Pin Pequeño", "callback_data": "pin_pequeño"},
                              {"text": "🔩 Pin Grande", "callback_data": "pin_grande"}]
                         ]
                     }
                     requests.post(f"{API_URL}/sendMessage", json={
                         "chat_id": chat_id,
-                        "text": f"✅ Canastas: {cantidad}\n\n🔧 Selecciona el tamaño del pin:",
+                        "text": f"✅ Canastas: {cantidad}\n\n🔧 Selecciona el tamaño del pin:",
                         "reply_markup": teclado
                     })
                 else:
                     pin_texto = estado["pin"]
                     teclado = {
                         "inline_keyboard": [
-                            [{"text": "✅ Sí", "callback_data": "otro_si"},
+                            [{"text": "✅ Sí", "callback_data": "otro_si"},
                              {"text": "❌ No", "callback_data": "otro_no"}]
                         ]
                     }
                     requests.post(f"{API_URL}/sendMessage", json={
                         "chat_id": chat_id,
-                        "text": f"✅ Canastas: {cantidad}\n\nPin asignado automáticamente: {pin_texto} 🔩\n\n➕ ¿Deseas agregar otro lote?",
+                        "text": f"✅ Canastas: {cantidad}\n\nPin asignado automáticamente: {pin_texto} 🔩\n\n➕ ¿Deseas agregar otro lote?",
                         "reply_markup": teclado
                     })
 
             except ValueError:
                 requests.post(f"{API_URL}/sendMessage", json={
                     "chat_id": chat_id,
-                    "text": "❗ Ingresa un número válido de canastas."
+                    "text": "❗ Ingresa un número válido de canastas."
                 })
 
-        elif "callback_query" in update:
+    elif "callback_query" in update:
         chat_id = update["callback_query"]["message"]["chat"]["id"]
         callback_data = update["callback_query"]["data"]
-        estado = estados_usuarios.get(chat_id)
-
-            if callback_data == "menu_tiempos":
+        if callback_data == "menu_tiempos":
             mostrar_menu_tiempos(chat_id)
 
-            elif callback_data.startswith("tiempo_"):
+        elif callback_data.startswith("tiempo_"):
             medida = callback_data.split("tiempo_")[1]
             mostrar_proceso_termico(chat_id, medida)
 
-            elif callback_data == "volver_menu":
+        elif callback_data == "volver_menu":
             mostrar_menu(chat_id)
 
-            elif callback_data == "reiniciar_tiempos":
+        elif callback_data == "reiniciar_tiempos":
             mostrar_menu_tiempos(chat_id)
 
-            elif callback_data == "transito":
+        estado = estados_usuarios.get(chat_id)
+
+        if callback_data == "transito":
             estados_usuarios[chat_id] = {
                 "paso": "llenadora",
                 "reportes": []
-                }
-                mostrar_llenadoras(chat_id)
-
+            }
+            mostrar_llenadoras(chat_id)
 
         elif callback_data.startswith("llenadora_"):
             llenadora = callback_data.split("_", 1)[1]
@@ -133,7 +132,7 @@ def webhook():
                     }
                     requests.post(f"{API_URL}/sendMessage", json={
                         "chat_id": chat_id,
-                        "text": f"✅ Llenadora: {llenadora}\n\n📏 ¿Qué medida estás trabajando?",
+                        "text": f"✅ Llenadora: {llenadora}\n\n📏 ¿Qué medida estás trabajando?",
                         "reply_markup": teclado_medidas
                     })
 
@@ -178,7 +177,7 @@ def webhook():
                     estado["paso"] = "cantidad"
                     requests.post(f"{API_URL}/sendMessage", json={
                         "chat_id": chat_id,
-                        "text": f"✅ Producto: {producto}\n🌎 Mercado asignado automáticamente: RTCA\n\n🔢 ¿Cuántas canastas se reportaron?"
+                        "text": f"✅ Producto: {producto}\n🌎 Mercado asignado automáticamente: RTCA\n\n🔢 ¿Cuántas canastas se reportaron?"
                     })
                 else:
                     estado["paso"] = "mercado"
@@ -201,7 +200,7 @@ def webhook():
                 estado["paso"] = "cantidad"
                 requests.post(f"{API_URL}/sendMessage", json={
                     "chat_id": chat_id,
-                    "text": f"✅ Mercado: {mercado}\n\n🔢 ¿Cuántas canastas se reportaron?"
+                    "text": f"✅ Mercado: {mercado}\n\n🔢 ¿Cuántas canastas se reportaron?"
                 })
 
         elif callback_data.startswith("pin_"):
@@ -211,7 +210,7 @@ def webhook():
                 estado["paso"] = "otro_lote"
                 teclado = {
                     "inline_keyboard": [
-                        [{"text": "✅ Sí", "callback_data": "otro_si"},
+                        [{"text": "✅ Sí", "callback_data": "otro_si"},
                          {"text": "❌ No", "callback_data": "otro_no"}]
                     ]
                 }
@@ -224,15 +223,15 @@ def webhook():
         elif callback_data.startswith("otro_"):
             if estado:
                 cajas_por_canasta = {
-                    "4oz": {"grande": 0, "pequeño": 110},
-                    "8oz": {"grande": 68, "pequeño": 93.5},
-                    "14oz": {"grande": 80, "pequeño": 110},
-                    "16oz": {"grande": 0, "pequeño": 165},
-                    "28oz": {"grande": 58, "pequeño": 0},
-                    "35oz": {"grande": 53, "pequeño": 0},
-                    "40oz": {"grande": 48, "pequeño": 0},
-                    "80oz": {"grande": 53, "pequeño": 0},
-                    "4lbs": {"único": 81}
+                    "4oz": {"grande": 0, "pequeño": 110},
+                    "8oz": {"grande": 68, "pequeño": 93.5},
+                    "14oz": {"grande": 80, "pequeño": 110},
+                    "16oz": {"grande": 0, "pequeño": 165},
+                    "28oz": {"grande": 58, "pequeño": 0},
+                    "35oz": {"grande": 53, "pequeño": 0},
+                    "40oz": {"grande": 48, "pequeño": 0},
+                    "80oz": {"grande": 53, "pequeño": 0},
+                    "4lbs": {"único": 81}
                 }
 
                 estado["reportes"].append({
@@ -370,7 +369,7 @@ def mostrar_menu(chat_id):
     teclado = {
         "inline_keyboard": [
             [{"text": "📦 Reportar tránsito", "callback_data": "transito"}],
-            [{"text": "🕒 Tiempos", "callback_data": "menu_tiempos"}]
+            [{"text": "🕒 Ver Tiempos", "callback_data": "menu_tiempos"}]
         ]
     }
     requests.post(f"{API_URL}/sendMessage", json={
@@ -396,15 +395,22 @@ def mostrar_llenadoras(chat_id):
 
 def mostrar_menu_tiempos(chat_id):
     medidas = [
-        "4oz", "5.5oz", "8oz", "8oz_entero", "8oz_picante",
-        "14.1oz", "14.1oz_arreglado", "14.1oz_entero", "14.1oz_picante",
-        "16oz", "28oz", "28oz_entero", "35oz", "40oz", "4lb.1_chub", "80oz"
+        "4 oz", "5.5 oz", "8 oz", "8 oz Entero", "8 oz Picante",
+        "14 oz", "14 oz Arreglado", "14.1 Entero", "14.1 oz Picante",
+        "16 oz", "28 oz", "28 oz Entero", "35 oz", "40 oz", "4lbs Chub", "80 oz"
     ]
 
     teclado = {
         "inline_keyboard": [
-            [{"text": m.replace("_", " "), "callback_data": f"tiempo_{m}"}] for m in medidas
-        ]
+            [
+                {"text": medidas[i].replace("_", " "), "callback_data": f"tiempo_{medidas[i]}"},
+                {"text": medidas[i+1].replace("_", " "), "callback_data": f"tiempo_{medidas[i+1]}"}
+            ]
+            for i in range(0, len(medidas) - 1, 2)
+        ] + (
+            [[{"text": medidas[-1].replace("_", " "), "callback_data": f"tiempo_{medidas[-1]}"}]]
+            if len(medidas) % 2 == 1 else []
+        )
     }
 
     requests.post(f"{API_URL}/sendMessage", json={
@@ -416,7 +422,7 @@ def mostrar_menu_tiempos(chat_id):
 
 def mostrar_proceso_termico(chat_id, medida):
     procesos = {
-        "80oz": {
+        "80 oz": {
             "pasos": [
                 (1, 90.0, 1.800, 6),
                 (2, 122.5, 2.400, 21),
@@ -444,7 +450,7 @@ def mostrar_proceso_termico(chat_id, medida):
     minutos = total_min % 60
 
     texto = f"🧪 Proceso térmico para {medida.replace('_', ' ')}\n\n"
-    texto += "PASO | Temp (°C) | Presión (bar) | Tiempo (min)\n"
+    texto += "PASO | °C | Bar | Min\n"
     texto += "----------------------------------------------\n"
     for paso in pasos:
         texto += f" {paso[0]:<4}|  {paso[1]:<7} |    {paso[2]:<8}  |   {paso[3]}\n"
