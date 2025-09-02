@@ -25,7 +25,7 @@ import requests
 # =========================
 # Configuración
 # =========================
-TOKEN_TELEGRAM = os.getenv("BOT_TOKEN", "REEMPLAZA_AQUI_EL_TOKEN_EN_DESARROLLO")
+TOKEN_TELEGRAM = os.getenv(BOT_TOKEN)
 API_URL = f"https://api.telegram.org/bot{TOKEN_TELEGRAM}"
 POLL_TIMEOUT = 25
 last_update_id = None
