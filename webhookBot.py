@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Bot de Tránsito - Modo Webhook (Flask)
-- Pensado para Render como Web Service (económico): Telegram empuja updates al endpoint /webhook
-- Incluye /health para health checks
-- Reutiliza la lógica: menú, carga de datos, tránsito, claves, pin sugerido/validaciones
+Bot de Tránsito - Modo Webhook (Flask) [FIXED]
+- Arreglos: parsing de callbacks con .split("_")[-1] y md_escape() en textos dinámicos con Markdown
+- Pensado para Render Web Service: endpoint /webhook, health /health
 
-Variables de entorno requeridas:
+ENV:
 - BOT_TOKEN
-- PORT (Render)
-- (opcional) SECRET_TOKEN_WEBHOOK  -> se valida contra header 'X-Telegram-Bot-Api-Secret-Token'
+- PORT
+- (opcional) SECRET_TOKEN_WEBHOOK
 """
 
 import os
@@ -185,7 +184,12 @@ def generar_clave_envase(llenadora, mercado, sku, vida_util_meses, fecha_ref=Non
 # Telegram helpers
 # =========================
 def md_escape(texto: str) -> str:
-    return str(texto).replace('_', r'\_').replace('*', r'\*').replace('[', r'\[').replace('`', r'\`')
+    # Escapa caracteres problemáticos para Markdown V2/Legacy básico
+    return (str(texto)
+            .replace('_', r'\_')
+            .replace('*', r'\*')
+            .replace('[', r'\[')
+            .replace('`', r'\`'))
 
 def send_msg(chat_id, text, reply_markup=None, parse_mode="Markdown"):
     payload = {"chat_id": chat_id, "text": text}
@@ -211,8 +215,8 @@ def banner_estado_llenadoras(chat_id: int) -> str:
     def fmt(ll: str) -> str:
         combo = estado_ll.get(ll)
         if combo and all(k in combo for k in ("producto", "medida", "mercado")):
-            return f"{ll}: {combo['producto']} {combo['medida']} {combo['mercado']}"
-        return f"{ll}: —"
+            return f"{md_escape(ll)}: {md_escape(combo['producto'])} {md_escape(combo['medida'])} {md_escape(combo['mercado'])}"
+        return f"{md_escape(ll)}: —"
 
     lineas = [
         "📋 Estado actual por llenadora:",
@@ -296,8 +300,8 @@ def carga_ver(chat_id):
             if sku and vida:
                 clave = generar_clave_envase(ll, me, sku, vida)
                 lineas.append(
-                    f"\n*{ll}* → {p} {m} {me}\n"
-                    f"SKU: `{sku}` | Vida útil: {vida}m\n"
+                    f"\n*{md_escape(ll)}* → {md_escape(p)} {md_escape(m)} {md_escape(me)}\n"
+                    f"SKU: `{md_escape(sku)}` | Vida útil: {vida}m\n"
                     f"🔑 *Clave (ahora):*\n```\n{clave}\n```"
                 )
             else:
@@ -305,11 +309,11 @@ def carga_ver(chat_id):
                 if not sku: faltan.append("SKU")
                 if not vida: faltan.append("vida útil")
                 lineas.append(
-                    f"\n*{ll}* → {p} {m} {me}\n"
-                    f"⚠️ Falta completar en catálogo: {', '.join(faltan)}"
+                    f"\n*{md_escape(ll)}* → {md_escape(p)} {md_escape(m)} {md_escape(me)}\n"
+                    f"⚠️ Falta completar en catálogo: {', '.join(md_escape(x) for x in faltan)}"
                 )
         else:
-            lineas.append(f"\n*{ll}* → —")
+            lineas.append(f"\n*{md_escape(ll)}* → —")
 
     if not hay_algo:
         filas = [[{"text":"➕ Cargar ahora","callback_data":"carga_nuevo"}],
@@ -342,9 +346,9 @@ def mostrar_teclado_pin(chat_id, cantidad, medida):
         {"text": b_peq, "callback_data": "pin_pequeño"},
         {"text": b_gra, "callback_data": "pin_grande"},
     ]]
-    texto = f"✅ Canastas: {cantidad}\n📏 Medida: {medida}\n\n"
+    texto = f"✅ Canastas: {cantidad}\n📏 Medida: {md_escape(medida)}\n\n"
     if sugerido:
-        texto += f"💡 Sugerido: *{sugerido}* (puedes cambiarlo)\n\n"
+        texto += f"💡 Sugerido: *{md_escape(sugerido)}* (puedes cambiarlo)\n\n"
     texto += "🔧 Selecciona el tamaño del pin:"
     send_msg(chat_id, texto, teclado_inline(filas), parse_mode="Markdown")
 
@@ -446,26 +450,26 @@ def handle_message(message):
                 cfg = get_config_turno().get(str(chat_id), {})
                 medida = cfg.get(ll, {}).get("medida","")
                 if not pin_es_valido(medida, estado["pin"]):
-                    send_msg(chat_id, f"⚠️ Configuración inconsistente: {medida} no admite pin {estado['pin']}. Corrige la medida en Carga de datos.", parse_mode="Markdown")
+                    send_msg(chat_id, f"⚠️ Configuración inconsistente: {md_escape(medida)} no admite pin {md_escape(estado['pin'])}. Corrige la medida en Carga de datos.", parse_mode="Markdown")
                     estados_usuarios.pop(chat_id, None)
                     return
                 estado["paso"] = "t_otro"
                 mostrar_teclado_otro_lote_con_clave(
                     chat_id, estado,
-                    f"✅ Canastas: {cantidad}\nPin asignado automáticamente: único 🔩"
+                    f"✅ Canastas: {cantidad}\nPin asignado automáticamente: {md_escape('único')} 🔩"
                 )
             elif ll == "M3":
                 estado["pin"] = "grande"
                 cfg = get_config_turno().get(str(chat_id), {})
                 medida = cfg.get(ll, {}).get("medida","")
                 if not pin_es_valido(medida, estado["pin"]):
-                    send_msg(chat_id, f"⚠️ Configuración inconsistente: {medida} no admite pin {estado['pin']}. Corrige la medida en Carga de datos.", parse_mode="Markdown")
+                    send_msg(chat_id, f"⚠️ Configuración inconsistente: {md_escape(medida)} no admite pin {md_escape(estado['pin'])}. Corrige la medida en Carga de datos.", parse_mode="Markdown")
                     estados_usuarios.pop(chat_id, None)
                     return
                 estado["paso"] = "t_otro"
                 mostrar_teclado_otro_lote_con_clave(
                     chat_id, estado,
-                    f"✅ Canastas: {cantidad}\nPin asignado automáticamente: grande 🔩"
+                    f"✅ Canastas: {cantidad}\nPin asignado automáticamente: {md_escape('grande')} 🔩"
                 )
             else:
                 # M1/M2 pedir pin
@@ -501,78 +505,78 @@ def handle_callback(cq):
         carga_ver(chat_id)
 
     elif data.startswith("c_n_ll_"):
-        ll = data.split("_", 2)[2]
+        ll = data.split("_")[-1]  # M1/M2/M3/Chub
         estados_usuarios[chat_id] = {"paso":"carga_producto", "tmp":{"llenadora": ll}}
-        send_msg(chat_id, f"✅ Llenadora: {ll}\n\nElige *producto*:", teclado_productos(), parse_mode="Markdown")
+        send_msg(chat_id, f"✅ Llenadora: {md_escape(ll)}\n\nElige *producto*:", teclado_productos(), parse_mode="Markdown")
 
     elif data.startswith("c_n_p_"):
-        p = data.split("_", 2)[2]
+        p = data.split("_")[-1]
         if estado and estado.get("paso") == "carga_producto":
             estado["tmp"]["producto"] = p
             estado["paso"] = "carga_medida"
-            send_msg(chat_id, f"✅ Producto: {p}\n\nElige *medida*:", teclado_medidas(), parse_mode="Markdown")
+            send_msg(chat_id, f"✅ Producto: {md_escape(p)}\n\nElige *medida*:", teclado_medidas(), parse_mode="Markdown")
 
     elif data.startswith("c_n_m_"):
-        m = data.split("_", 2)[2]
+        m = data.split("_")[-1]
         if estado and estado.get("paso") == "carga_medida":
             estado["tmp"]["medida"] = m
             estado["paso"] = "carga_mercado"
-            send_msg(chat_id, f"✅ Medida: {m}\n\nElige *mercado*:", teclado_mercados(), parse_mode="Markdown")
+            send_msg(chat_id, f"✅ Medida: {md_escape(m)}\n\nElige *mercado*:", teclado_mercados(), parse_mode="Markdown")
 
     elif data.startswith("c_n_me_"):
-        me = data.split("_", 3)[3]
+        me = data.split("_")[-1]
         if estado and estado.get("paso") == "carga_mercado":
             tmp = estado["tmp"]
             tmp["mercado"] = me
-            p, m, me = tmp["producto"], tmp["medida"], tmp["mercado"]
-            k = combo_key(p,m,me)
+            p, m, me_val = tmp["producto"], tmp["medida"], tmp["mercado"]
+            k = combo_key(p,m,me_val)
             catalogo = get_catalogo()
             cat = catalogo.get(k)
             if not cat or "sku" not in cat or "vida_util_meses" not in cat:
-                send_msg(chat_id, f"⚠️ Este combo no existe en catálogo o está incompleto:\n{k}\nAgrega en {CATALOGO_SKUS_PATH} el *sku* y *vida_util_meses* y vuelve a intentar.", parse_mode="Markdown")
+                send_msg(chat_id, f"⚠️ Este combo no existe en catálogo o está incompleto:\n{md_escape(k)}\nAgrega *sku* y *vida_util_meses* en {md_escape(CATALOGO_SKUS_PATH)} y vuelve a intentar.", parse_mode="Markdown")
                 estados_usuarios.pop(chat_id, None)
             else:
                 cfg = get_config_turno()
                 por_chat = cfg.get(str(chat_id), {})
-                por_chat[tmp["llenadora"]] = {"producto": p, "medida": m, "mercado": me}
+                por_chat[tmp["llenadora"]] = {"producto": p, "medida": m, "mercado": me_val}
                 cfg[str(chat_id)] = por_chat
                 set_config_turno(cfg)
 
-                clave = generar_clave_envase(tmp["llenadora"], me, cat["sku"], cat["vida_util_meses"])
-                send_msg(chat_id, f"✅ Configuración guardada para *{tmp['llenadora']}* → {p} {m} {me}\n\n🔑 Clave (ahora):\n```\n{clave}\n```", parse_mode="Markdown")
+                clave = generar_clave_envase(tmp["llenadora"], me_val, cat["sku"], cat["vida_util_meses"])
+                send_msg(chat_id, f"✅ Configuración guardada para *{md_escape(tmp['llenadora'])}* → {md_escape(p)} {md_escape(m)} {md_escape(me_val)}\n\n🔑 Clave (ahora):\n```\n{clave}\n```", parse_mode="Markdown")
                 estados_usuarios.pop(chat_id, None)
                 mostrar_menu(chat_id)
 
     elif data.startswith("t_ll_"):
-        ll = data.split("_", 2)[2]
+        ll = data.split("_")[-1]
         cfg = get_config_turno().get(str(chat_id), {})
         combo = cfg.get(ll)
         if not combo:
             filas = [[{"text":"➕ Crear registro ahora","callback_data":"carga_nuevo"}],
                      [{"text":"⬅️ Volver","callback_data":"volver_menu"}]]
-            send_msg(chat_id, f"⚠️ No hay registro para {ll}.\nUsa *Cargar* para asignar un producto/medida/mercado.", teclado_inline(filas), parse_mode="Markdown")
+            send_msg(chat_id, f"⚠️ No hay registro para {md_escape(ll)}.\nUsa *Cargar* para asignar un producto/medida/mercado.", teclado_inline(filas), parse_mode="Markdown")
         else:
             estados_usuarios[chat_id] = {"paso":"t_cantidad", "llenadora": ll, "reportes": []}
-            send_msg(chat_id, f"✅ {ll}: {combo['producto']} {combo['medida']} {combo['mercado']}\n\n🔢 ¿Cuántas canastas se reportaron?", parse_mode="Markdown")
+            send_msg(chat_id, f"✅ {md_escape(ll)}: {md_escape(combo['producto'])} {md_escape(combo['medida'])} {md_escape(combo['mercado'])}\n\n🔢 ¿Cuántas canastas se reportaron?", parse_mode="Markdown")
 
     elif data.startswith("pin_"):
-        pin = data.split("_", 1)[1]
+        pin = data.split("_")[-1]
         if estado and estado.get("paso") == "t_pin":
             ll = estado.get("llenadora")
             cfg = get_config_turno().get(str(chat_id), {})
             medida = cfg.get(ll, {}).get("medida","—")
             if not pin_es_valido(medida, pin):
-                send_msg(chat_id, f"⚠️ El pin *{pin}* no es válido para {medida}.", parse_mode="Markdown")
+                send_msg(chat_id, f"⚠️ El pin *{md_escape(pin)}* no es válido para {md_escape(medida)}.", parse_mode="Markdown")
                 mostrar_teclado_pin(chat_id, estado.get("canastas"), medida)
                 return
             estado["pin"] = pin
             estado["paso"] = "t_otro"
-            mostrar_teclado_otro_lote_con_clave(chat_id, estado, f"✅ Pin: {pin}")
+            mostrar_teclado_otro_lote_con_clave(chat_id, estado, f"✅ Pin: {md_escape(pin)}")
 
     elif data == "ver_clave":
         cfg = get_config_turno().get(str(chat_id), {})
-        estado = estados_usuarios.get(chat_id, {})
-        ll = estado.get("llenadora")
+        estado_local = estados_usuarios.get(chat_id, {})
+        ll = estado_local.get("llenadora")
         combo = cfg.get(ll, {})
         catalogo = get_catalogo()
         k = combo_key(combo.get("producto",""), combo.get("medida",""), combo.get("mercado",""))
@@ -622,7 +626,6 @@ def health():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    # Validación opcional del secret token del webhook
     if SECRET_TOKEN:
         header_token = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
         if header_token != SECRET_TOKEN:
@@ -635,7 +638,6 @@ def webhook():
         elif "callback_query" in update:
             handle_callback(update["callback_query"])
     except Exception as e:
-        # Log minimal
         print("Error en handle_update:", e)
     return jsonify({"ok": True}), 200
 
