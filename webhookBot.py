@@ -263,6 +263,7 @@ def teclado_productos():
         {"text": "FRP", "callback_data": "c_n_p_FRP"},
         {"text": "FNE", "callback_data": "c_n_p_FNE"},
         {"text": "FRE", "callback_data": "c_n_p_FRE"},
+        {"text": "FNDT", "callback_data": "c_n_p_FNDT"},
     ]
     filas = [base[i:i+2] for i in range(0, len(base), 2)]
     return teclado_inline(filas)
