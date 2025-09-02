@@ -1,42 +1,15 @@
-[
-  {
-    "sku": "135164",
-    "producto": "FRE",
-    "presentacion": "4LBS",
-    "factores_por_pin": { "UNICO": 81 },
-    "mercado": "RTCA",
-    "vida_util_meses": "8"
-  },
-  {
-    "sku": "135638",
-    "producto": "FNE",
-    "presentacion": "4LBS",
-    "factores_por_pin": { "UNICO": 81 },
-    "mercado": "RTCA",
-    "vida_util_meses": "8"
-  },
-  {
-    "sku": "194916",
-    "producto": "FND",
-    "presentacion": "8 oz",
-    "factores_por_pin": { "PEQUENO": 93.5, "GRANDE": 68 },
-    "mercado": "RTCA",
-    "vida_util_meses": "18"
-  },
-  {
-    "sku": "194917",
-    "producto": "FND Arreglados",
-    "presentacion": "8 oz",
-    "factores_por_pin": { "PEQUENO": 93.5, "GRANDE": 68 },
-    "mercado": "RTCA",
-    "vida_util_meses": "18"
-  },
-  {
-    "sku": "194948",
-    "producto": "FND Picante Medio",
-    "presentacion": "8 oz",
-    "factores_por_pin": { "PEQUENO": 93.5, "GRANDE": 68 },
-    "mercado": "RTCA",
-    "vida_util_meses": "18"
-  }
-]
+{
+  "FRE|4lbs|RTCA": { "sku": "135164", "vida_util_meses": 8 },
+  "FNE|4lbs|RTCA": { "sku": "135638", "vida_util_meses": 8 },
+  "FND|35oz|RTCA": { "sku": "134560", "vida_util_meses": 18 },
+  "FRD|35oz|RTCA": { "sku": "134583", "vida_util_meses": 18 },
+  "FND|8oz|RTCA": { "sku": "194916", "vida_util_meses": 18 },
+  "FNA|8oz|RTCA": { "sku": "194917", "vida_util_meses": 18 },
+  "FNR|8oz|RTCA": { "sku": "194919", "vida_util_meses": 18 },
+  "FNP|8oz|RTCA": { "sku": "194948", "vida_util_meses": 18 },
+  "FND|8oz|FDA": { "sku": "194951", "vida_util_meses": 18 },
+  "FRD|8oz|FDA": { "sku": "194953", "vida_util_meses": 18 },
+  "FND|4oz|RTCA": { "sku": "209481", "vida_util_meses": 18 },
+  "FNDT|35oz|RTCA": { "sku": "209684", "vida_util_meses": 18 },
+}
+
