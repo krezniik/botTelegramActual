@@ -1,0 +1,42 @@
+[
+  {
+    "sku": "135164",
+    "producto": "FRE",
+    "presentacion": "4LBS",
+    "factores_por_pin": { "UNICO": 81 },
+    "mercado": "RTCA",
+    "vida_util_meses": "8"
+  },
+  {
+    "sku": "135638",
+    "producto": "FNE",
+    "presentacion": "4LBS",
+    "factores_por_pin": { "UNICO": 81 },
+    "mercado": "RTCA",
+    "vida_util_meses": "8"
+  },
+  {
+    "sku": "194916",
+    "producto": "FND",
+    "presentacion": "8 oz",
+    "factores_por_pin": { "PEQUENO": 93.5, "GRANDE": 68 },
+    "mercado": "RTCA",
+    "vida_util_meses": "18"
+  },
+  {
+    "sku": "194917",
+    "producto": "FND Arreglados",
+    "presentacion": "8 oz",
+    "factores_por_pin": { "PEQUENO": 93.5, "GRANDE": 68 },
+    "mercado": "RTCA",
+    "vida_util_meses": "18"
+  },
+  {
+    "sku": "194948",
+    "producto": "FND Picante Medio",
+    "presentacion": "8 oz",
+    "factores_por_pin": { "PEQUENO": 93.5, "GRANDE": 68 },
+    "mercado": "RTCA",
+    "vida_util_meses": "18"
+  }
+]
