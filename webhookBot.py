@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Bot de Tránsito - Modo Webhook (Flask) [FIXED + P3 acumulado]
+Bot de Tránsito - Modo Webhook (Flask)
 - Callbacks con .split("_")[-1]
 - md_escape() en mensajes Markdown
 - P3: Acumulado por turno por chat (progreso_turno.json) y resumen multi-línea
+- P4: No mostrar clave en flujo de tránsito (sólo en 👁 Ver y en el banner)
 
 ENV:
 - BOT_TOKEN
@@ -31,7 +32,7 @@ CATALOGO_SKUS_PATH    = "catalogo_skus.json"
 CONFIG_TURNO_PATH     = "config_turno.json"
 ORDENES_SEMANA_PATH   = "ordenes_semana.json"
 PROGRESO_SEMANA_PATH  = "progreso_semana.json"
-PROGRESO_TURNO_PATH   = "progreso_turno.json"   # <-- NUEVO (P3)
+PROGRESO_TURNO_PATH   = "progreso_turno.json"   # acumulado del turno por chat
 
 _json_lock = threading.Lock()
 
@@ -137,7 +138,7 @@ def calcular_vencimiento(fecha_prod, vida_util_meses):
     return sumar_meses(fecha_prod, vida_util_meses)
 
 # =========================
-# Catálogo y configuración
+# Catálogo, configuración y progreso turno
 # =========================
 def get_catalogo():
     return _load_json(CATALOGO_SKUS_PATH, {})
@@ -151,16 +152,16 @@ def get_config_turno():
 def set_config_turno(data):
     return _save_json(CONFIG_TURNO_PATH, data)
 
-def get_progreso_turno():  # <-- NUEVO (P3)
+def get_progreso_turno():
     data = _load_json(PROGRESO_TURNO_PATH, {})
     if not isinstance(data, dict):
         data = {}
     return data
 
-def set_progreso_turno(data):  # <-- NUEVO (P3)
+def set_progreso_turno(data):
     return _save_json(PROGRESO_TURNO_PATH, data)
 
-def append_lote_turno(chat_id, lote):  # <-- NUEVO (P3)
+def append_lote_turno(chat_id, lote):
     data = get_progreso_turno()
     key = str(chat_id)
     obj = data.get(key, {"lotes": []})
@@ -173,7 +174,7 @@ def combo_key(producto, medida, mercado):
     return f"{producto}|{medida}|{mercado}"
 
 # =========================
-# Clave de envase
+# Clave de envase (sólo para 👁 Ver y banner)
 # =========================
 LETRA_LLENADORA = {"M1":"B", "M2":"C", "M3":"D"}  # Chub pendiente
 
@@ -237,10 +238,22 @@ def teclado_inline(filas):
 def banner_estado_llenadoras(chat_id: int) -> str:
     cfg = get_config_turno()
     estado_ll = cfg.get(str(chat_id), {})
+    catalogo = get_catalogo()
 
     def fmt(ll: str) -> str:
         combo = estado_ll.get(ll)
         if combo and all(k in combo for k in ("producto", "medida", "mercado")):
+            # Generamos clave aquí, SÓLO para banner
+            k = combo_key(combo["producto"], combo["medida"], combo["mercado"])
+            cat = catalogo.get(k, {})
+            sku = cat.get("sku")
+            vida = cat.get("vida_util_meses")
+            if sku and vida:
+                clave = generar_clave_envase(ll, combo["mercado"], sku, vida)
+                return (
+                    f"{md_escape(ll)}: {md_escape(combo['producto'])} {md_escape(combo['medida'])} {md_escape(combo['mercado'])}\n"
+                    f"🔑 {md_escape(clave)}"
+                )
             return f"{md_escape(ll)}: {md_escape(combo['producto'])} {md_escape(combo['medida'])} {md_escape(combo['mercado'])}"
         return f"{md_escape(ll)}: —"
 
@@ -264,6 +277,7 @@ def mostrar_menu_carga(chat_id):
     filas = [
         [{"text": "➕ Cargar", "callback_data": "carga_nuevo"},
          {"text": "👁 Ver",   "callback_data": "carga_ver"}],
+        # (Más adelante añadiremos Editar/Borrar/Reset aquí)
         [{"text": "⬅️ Volver", "callback_data": "volver_menu"}]
     ]
     send_msg(chat_id, "📦 Carga de datos — elige una opción:", teclado_inline(filas))
@@ -349,7 +363,7 @@ def carga_ver(chat_id):
         send_msg(chat_id, "\n".join(lineas), parse_mode="Markdown")
 
 # =========================
-# Reportar tránsito
+# Reportar tránsito (sin mostrar clave)
 # =========================
 def mostrar_llenadoras_transito(chat_id):
     filas = [
@@ -378,81 +392,18 @@ def mostrar_teclado_pin(chat_id, cantidad, medida):
     texto += "🔧 Selecciona el tamaño del pin:"
     send_msg(chat_id, texto, teclado_inline(filas), parse_mode="Markdown")
 
-def mostrar_teclado_otro_lote_con_clave(chat_id, estado, prefijo_texto=""):
-    # NOTA: aquí AÚN dejamos la clave porque el punto 4 lo haremos después.
+def mostrar_teclado_otro_lote(chat_id, estado, prefijo_texto=""):
+    """Versión sin clave ni botón 'ver_clave'."""
     txt = prefijo_texto.strip()
-    cfg = get_config_turno().get(str(chat_id), {})
-    ll = estado.get("llenadora")
-    combo = cfg.get(ll, {})
-    catalogo = get_catalogo()
-    k = combo_key(combo.get("producto",""), combo.get("medida",""), combo.get("mercado",""))
-    cat = catalogo.get(k, {})
-    sku, vida = cat.get("sku"), cat.get("vida_util_meses")
-
-    if sku and vida and all(k in estado for k in ("pin",)) and combo.get("mercado"):
-        clave = generar_clave_envase(ll, combo["mercado"], sku, vida)
-        if txt:
-            txt += "\n\n"
-        txt += f"🔑 Clave sugerida: *\n{md_escape(clave)}\n*"
-
     filas = [[
-        {"text": "🔑 Ver clave del envase", "callback_data": "ver_clave"},
-    ],[
         {"text": "✅ Sí", "callback_data": "otro_si"},
         {"text": "❌ No", "callback_data": "otro_no"},
     ]]
-    send_msg(chat_id, (txt + "\n\n➕ ¿Deseas agregar otro lote?").strip(), teclado_inline(filas), parse_mode=None)
+    if txt:
+        txt += "\n\n"
+    txt += "➕ ¿Deseas agregar otro lote?"
+    send_msg(chat_id, txt, teclado_inline(filas), parse_mode=None)
 
-def construir_resumen_elegante(reportes, chat_id):
-    # (Se conserva por compatibilidad; ya no la usamos para el cierre, pero puede servir)
-    por_llenadora = {}
-    total_cajas = 0.0
-    total_canastas = 0
-    lineas = ["✅ *Resumen del turno:*"]
-    for idx, r in enumerate(reportes, 1):
-        llenadora = r["llenadora"]
-        canastas  = int(r["canastas"])
-        pin       = r["pin"]
-
-        cfg = get_config_turno().get(str(chat_id), {})
-        combo = cfg.get(llenadora, {})
-        producto = combo.get("producto","—")
-        medida   = combo.get("medida","—")
-        mercado  = combo.get("mercado","—")
-
-        por_pin = CAJAS_POR_CANASTA.get(medida, {}).get(pin, 0)
-        cajas = canastas * por_pin
-
-        d = por_llenadora.setdefault(llenadora, {"cajas": 0.0, "canastas": 0})
-        d["cajas"] += cajas
-        d["canastas"] += canastas
-        total_cajas += cajas
-        total_canastas += canastas
-
-        lineas.append(
-            f"\n📦 *Lote {idx}*\n"
-            f"🔹 Llenadora: {md_escape(llenadora)}\n"
-            f"📏 Medida: {md_escape(medida)}\n"
-            f"🍲 Producto: {md_escape(producto)}\n"
-            f"🌎 Mercado: {md_escape(mercado)}\n"
-            f"🧺 Canastas: {canastas} | 🔩 Pin: {md_escape(pin)}\n"
-            f"📦 Cajas: *{int(cajas) if cajas.is_integer() else f'{cajas:.1f}'}* (≈ {int(por_pin) if isinstance(por_pin,(int,float)) and float(por_pin).is_integer() else por_pin} x canasta)"
-        )
-
-    lineas.append("\n— — —")
-    lineas.append("*Totales por llenadora*:")
-    for ll, d in por_llenadora.items():
-        cajas_fmt = int(d["cajas"]) if d["cajas"].is_integer() else f"{d['cajas']:.1f}"
-        lineas.append(f"• {md_escape(ll)} → 🧺 {d['canastas']} | 📦 {cajas_fmt}")
-
-    total_fmt = int(total_cajas) if total_cajas.is_integer() else f"{total_cajas:.1f}"
-    lineas.append("\n*Totales generales:*")
-    lineas.append(f"🧺 Canastas: *{total_canastas}*")
-    lineas.append(f"📦 Cajas: *{total_fmt}*")
-
-    return "\n".join(lineas)
-
-# === NUEVA: Resumen basado en TODO el acumulado del turno (P3) ===
 def construir_resumen_desde_progreso(chat_id):
     prog = get_progreso_turno().get(str(chat_id), {})
     lotes = prog.get("lotes", [])
@@ -535,7 +486,7 @@ def handle_message(message):
                     estados_usuarios.pop(chat_id, None)
                     return
                 estado["paso"] = "t_otro"
-                mostrar_teclado_otro_lote_con_clave(
+                mostrar_teclado_otro_lote(
                     chat_id, estado,
                     f"✅ Canastas: {cantidad}\nPin asignado automáticamente: {md_escape('único')} 🔩"
                 )
@@ -548,7 +499,7 @@ def handle_message(message):
                     estados_usuarios.pop(chat_id, None)
                     return
                 estado["paso"] = "t_otro"
-                mostrar_teclado_otro_lote_con_clave(
+                mostrar_teclado_otro_lote(
                     chat_id, estado,
                     f"✅ Canastas: {cantidad}\nPin asignado automáticamente: {md_escape('grande')} 🔩"
                 )
@@ -585,6 +536,7 @@ def handle_callback(cq):
     elif data == "carga_ver":
         carga_ver(chat_id)
 
+    # ----- Carga de datos -----
     elif data.startswith("c_n_ll_"):
         ll = data.split("_")[-1]  # M1/M2/M3/Chub
         estados_usuarios[chat_id] = {"paso":"carga_producto", "tmp":{"llenadora": ll}}
@@ -623,11 +575,13 @@ def handle_callback(cq):
                 cfg[str(chat_id)] = por_chat
                 set_config_turno(cfg)
 
+                # Mostrar clave SOLO aquí (carga de datos)
                 clave = generar_clave_envase(tmp["llenadora"], me_val, cat["sku"], cat["vida_util_meses"])
                 send_msg(chat_id, f"✅ Configuración guardada para *{md_escape(tmp['llenadora'])}* → {md_escape(p)} {md_escape(m)} {md_escape(me_val)}\n\n🔑 Clave (ahora):\n```\n{clave}\n```", parse_mode="Markdown")
                 estados_usuarios.pop(chat_id, None)
                 mostrar_menu(chat_id)
 
+    # ----- Tránsito -----
     elif data.startswith("t_ll_"):
         ll = data.split("_")[-1]
         cfg = get_config_turno().get(str(chat_id), {})
@@ -652,25 +606,10 @@ def handle_callback(cq):
                 return
             estado["pin"] = pin
             estado["paso"] = "t_otro"
-            mostrar_teclado_otro_lote_con_clave(chat_id, estado, f"✅ Pin: {md_escape(pin)}")
-
-    elif data == "ver_clave":
-        cfg = get_config_turno().get(str(chat_id), {})
-        estado_local = estados_usuarios.get(chat_id, {})
-        ll = estado_local.get("llenadora")
-        combo = cfg.get(ll, {})
-        catalogo = get_catalogo()
-        k = combo_key(combo.get("producto",""), combo.get("medida",""), combo.get("mercado",""))
-        cat = catalogo.get(k, {})
-        sku, vida = cat.get("sku"), cat.get("vida_util_meses")
-        if ll and combo and sku and vida:
-            clave = generar_clave_envase(ll, combo["mercado"], sku, vida)
-            send_msg(chat_id, f"🔑 Clave (ahora):\n```\n{clave}\n```", parse_mode=None)
-        else:
-            send_msg(chat_id, "⚠️ Falta información en catálogo o configuración para generar la clave.")
+            mostrar_teclado_otro_lote(chat_id, estado, f"✅ Pin: {md_escape(pin)}")
 
     elif data.startswith("otro_"):
-        # Confirmación del lote actual (P3: guardar en acumulado y mostrar resumen de TODO el turno)
+        # Confirmación del lote actual: guardar en acumulado y mostrar resumen del turno (sin claves)
         if estado and estado.get("paso") in ("t_otro","t_pin","t_cantidad"):
             ll = estado.get("llenadora")
             cfg_all = get_config_turno()
@@ -681,7 +620,6 @@ def handle_callback(cq):
                 estados_usuarios.pop(chat_id, None)
                 return
 
-            # Construye y persiste el lote en progreso_turno.json
             lote = {
                 "ts": datetime.now().isoformat(timespec="seconds"),
                 "llenadora": ll,
@@ -709,7 +647,7 @@ app = Flask(__name__)
 
 @app.route("/health", methods=["GET"])
 def health():
-    # Pequeño diagnóstico: cuántas entradas tiene el catálogo
+    # Diagnóstico: cuántas entradas tiene el catálogo
     cat = get_catalogo()
     return jsonify({"status": "ok", "catalogo_entries": len(cat)}), 200
 
@@ -736,7 +674,7 @@ def ensure_files():
         (CONFIG_TURNO_PATH, {}),
         (ORDENES_SEMANA_PATH, {}),
         (PROGRESO_SEMANA_PATH, {}),
-        (PROGRESO_TURNO_PATH, {}),  # <-- asegura acumulado
+        (PROGRESO_TURNO_PATH, {}),  # asegura acumulado
     ]:
         if not os.path.exists(path):
             _save_json(path, default)
