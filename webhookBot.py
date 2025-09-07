@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Bot de Tránsito - Modo Webhook (Flask) [FIXED]
-- Arreglos: parsing de callbacks con .split("_")[-1] y md_escape() en textos dinámicos con Markdown
-- Pensado para Render Web Service: endpoint /webhook, health /health
+Bot de Tránsito - Modo Webhook (Flask) [FIXED + P3 acumulado]
+- Callbacks con .split("_")[-1]
+- md_escape() en mensajes Markdown
+- P3: Acumulado por turno por chat (progreso_turno.json) y resumen multi-línea
 
 ENV:
 - BOT_TOKEN
@@ -30,10 +31,11 @@ CATALOGO_SKUS_PATH    = "catalogo_skus.json"
 CONFIG_TURNO_PATH     = "config_turno.json"
 ORDENES_SEMANA_PATH   = "ordenes_semana.json"
 PROGRESO_SEMANA_PATH  = "progreso_semana.json"
+PROGRESO_TURNO_PATH   = "progreso_turno.json"   # <-- NUEVO (P3)
 
 _json_lock = threading.Lock()
 
-# Estados
+# Estados en memoria (por chat)
 estados_usuarios = {}
 
 # =========================
@@ -97,10 +99,16 @@ def _load_json(path, default):
 
 def _save_json(path, data):
     try:
+        tmp = path + ".tmp"
         with _json_lock:
-            with open(path, "w", encoding="utf-8") as f:
+            with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-            return True
+            # reemplazo atómico
+            if os.path.exists(path):
+                os.replace(tmp, path)
+            else:
+                os.rename(tmp, path)
+        return True
     except Exception:
         return False
 
@@ -143,6 +151,24 @@ def get_config_turno():
 def set_config_turno(data):
     return _save_json(CONFIG_TURNO_PATH, data)
 
+def get_progreso_turno():  # <-- NUEVO (P3)
+    data = _load_json(PROGRESO_TURNO_PATH, {})
+    if not isinstance(data, dict):
+        data = {}
+    return data
+
+def set_progreso_turno(data):  # <-- NUEVO (P3)
+    return _save_json(PROGRESO_TURNO_PATH, data)
+
+def append_lote_turno(chat_id, lote):  # <-- NUEVO (P3)
+    data = get_progreso_turno()
+    key = str(chat_id)
+    obj = data.get(key, {"lotes": []})
+    obj.setdefault("lotes", [])
+    obj["lotes"].append(lote)
+    data[key] = obj
+    set_progreso_turno(data)
+
 def combo_key(producto, medida, mercado):
     return f"{producto}|{medida}|{mercado}"
 
@@ -184,7 +210,7 @@ def generar_clave_envase(llenadora, mercado, sku, vida_util_meses, fecha_ref=Non
 # Telegram helpers
 # =========================
 def md_escape(texto: str) -> str:
-    # Escapa caracteres problemáticos para Markdown V2/Legacy básico
+    # Escapa caracteres problemáticos para Markdown básico
     return (str(texto)
             .replace('_', r'\_')
             .replace('*', r'\*')
@@ -263,7 +289,6 @@ def teclado_productos():
         {"text": "FRP", "callback_data": "c_n_p_FRP"},
         {"text": "FNE", "callback_data": "c_n_p_FNE"},
         {"text": "FRE", "callback_data": "c_n_p_FRE"},
-        {"text": "FNDT", "callback_data": "c_n_p_FNDT"},
     ]
     filas = [base[i:i+2] for i in range(0, len(base), 2)]
     return teclado_inline(filas)
@@ -354,6 +379,7 @@ def mostrar_teclado_pin(chat_id, cantidad, medida):
     send_msg(chat_id, texto, teclado_inline(filas), parse_mode="Markdown")
 
 def mostrar_teclado_otro_lote_con_clave(chat_id, estado, prefijo_texto=""):
+    # NOTA: aquí AÚN dejamos la clave porque el punto 4 lo haremos después.
     txt = prefijo_texto.strip()
     cfg = get_config_turno().get(str(chat_id), {})
     ll = estado.get("llenadora")
@@ -378,6 +404,7 @@ def mostrar_teclado_otro_lote_con_clave(chat_id, estado, prefijo_texto=""):
     send_msg(chat_id, (txt + "\n\n➕ ¿Deseas agregar otro lote?").strip(), teclado_inline(filas), parse_mode=None)
 
 def construir_resumen_elegante(reportes, chat_id):
+    # (Se conserva por compatibilidad; ya no la usamos para el cierre, pero puede servir)
     por_llenadora = {}
     total_cajas = 0.0
     total_canastas = 0
@@ -410,6 +437,59 @@ def construir_resumen_elegante(reportes, chat_id):
             f"🌎 Mercado: {md_escape(mercado)}\n"
             f"🧺 Canastas: {canastas} | 🔩 Pin: {md_escape(pin)}\n"
             f"📦 Cajas: *{int(cajas) if cajas.is_integer() else f'{cajas:.1f}'}* (≈ {int(por_pin) if isinstance(por_pin,(int,float)) and float(por_pin).is_integer() else por_pin} x canasta)"
+        )
+
+    lineas.append("\n— — —")
+    lineas.append("*Totales por llenadora*:")
+    for ll, d in por_llenadora.items():
+        cajas_fmt = int(d["cajas"]) if d["cajas"].is_integer() else f"{d['cajas']:.1f}"
+        lineas.append(f"• {md_escape(ll)} → 🧺 {d['canastas']} | 📦 {cajas_fmt}")
+
+    total_fmt = int(total_cajas) if total_cajas.is_integer() else f"{total_cajas:.1f}"
+    lineas.append("\n*Totales generales:*")
+    lineas.append(f"🧺 Canastas: *{total_canastas}*")
+    lineas.append(f"📦 Cajas: *{total_fmt}*")
+
+    return "\n".join(lineas)
+
+# === NUEVA: Resumen basado en TODO el acumulado del turno (P3) ===
+def construir_resumen_desde_progreso(chat_id):
+    prog = get_progreso_turno().get(str(chat_id), {})
+    lotes = prog.get("lotes", [])
+    if not lotes:
+        return "No hay lotes acumulados en este turno."
+
+    por_llenadora = {}
+    total_cajas = 0.0
+    total_canastas = 0
+    lineas = ["✅ *Resumen del turno (todas las líneas):*"]
+
+    for idx, r in enumerate(lotes, 1):
+        llenadora = r.get("llenadora","—")
+        canastas  = int(r.get("canastas",0))
+        pin       = r.get("pin","—")
+        producto  = r.get("producto","—")
+        medida    = r.get("medida","—")
+        mercado   = r.get("mercado","—")
+
+        por_pin = CAJAS_POR_CANASTA.get(medida, {}).get(pin, 0)
+        cajas = canastas * por_pin
+
+        d = por_llenadora.setdefault(llenadora, {"cajas": 0.0, "canastas": 0})
+        d["cajas"] += cajas
+        d["canastas"] += canastas
+        total_cajas += cajas
+        total_canastas += canastas
+
+        lineas.append(
+            f"\n📦 *Lote {idx}*\n"
+            f"🔹 Llenadora: {md_escape(llenadora)}\n"
+            f"🍲 Producto: {md_escape(producto)}\n"
+            f"📏 Medida: {md_escape(medida)}\n"
+            f"🌎 Mercado: {md_escape(mercado)}\n"
+            f"🧺 Canastas: {canastas} | 🔩 Pin: {md_escape(pin)}\n"
+            f"📦 Cajas: *{int(cajas) if isinstance(cajas,(int,float)) and float(cajas).is_integer() else f'{cajas:.1f}'}* "
+            f"(≈ {int(por_pin) if isinstance(por_pin,(int,float)) and float(por_pin).is_integer() else por_pin} x canasta)"
         )
 
     lineas.append("\n— — —")
@@ -557,7 +637,7 @@ def handle_callback(cq):
                      [{"text":"⬅️ Volver","callback_data":"volver_menu"}]]
             send_msg(chat_id, f"⚠️ No hay registro para {md_escape(ll)}.\nUsa *Cargar* para asignar un producto/medida/mercado.", teclado_inline(filas), parse_mode="Markdown")
         else:
-            estados_usuarios[chat_id] = {"paso":"t_cantidad", "llenadora": ll, "reportes": []}
+            estados_usuarios[chat_id] = {"paso":"t_cantidad", "llenadora": ll}
             send_msg(chat_id, f"✅ {md_escape(ll)}: {md_escape(combo['producto'])} {md_escape(combo['medida'])} {md_escape(combo['mercado'])}\n\n🔢 ¿Cuántas canastas se reportaron?", parse_mode="Markdown")
 
     elif data.startswith("pin_"):
@@ -590,6 +670,7 @@ def handle_callback(cq):
             send_msg(chat_id, "⚠️ Falta información en catálogo o configuración para generar la clave.")
 
     elif data.startswith("otro_"):
+        # Confirmación del lote actual (P3: guardar en acumulado y mostrar resumen de TODO el turno)
         if estado and estado.get("paso") in ("t_otro","t_pin","t_cantidad"):
             ll = estado.get("llenadora")
             cfg_all = get_config_turno()
@@ -600,19 +681,24 @@ def handle_callback(cq):
                 estados_usuarios.pop(chat_id, None)
                 return
 
-            if "reportes" not in estado:
-                estado["reportes"] = []
-            estado["reportes"].append({
+            # Construye y persiste el lote en progreso_turno.json
+            lote = {
+                "ts": datetime.now().isoformat(timespec="seconds"),
                 "llenadora": ll,
+                "producto": combo.get("producto","—"),
+                "medida": combo.get("medida","—"),
+                "mercado": combo.get("mercado","—"),
                 "canastas": int(estado["canastas"]),
                 "pin": estado["pin"],
-            })
+            }
+            append_lote_turno(chat_id, lote)
 
             if data == "otro_si":
                 estados_usuarios[chat_id] = {"paso":"t_ll"}
+                send_msg(chat_id, "✅ Lote registrado. Elige otra llenadora para continuar.", parse_mode=None)
                 mostrar_llenadoras_transito(chat_id)
             else:
-                texto = construir_resumen_elegante(estado["reportes"], chat_id)
+                texto = construir_resumen_desde_progreso(chat_id)
                 send_msg(chat_id, texto, parse_mode="Markdown")
                 estados_usuarios.pop(chat_id, None)
 
@@ -623,7 +709,9 @@ app = Flask(__name__)
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok"}), 200
+    # Pequeño diagnóstico: cuántas entradas tiene el catálogo
+    cat = get_catalogo()
+    return jsonify({"status": "ok", "catalogo_entries": len(cat)}), 200
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -648,6 +736,7 @@ def ensure_files():
         (CONFIG_TURNO_PATH, {}),
         (ORDENES_SEMANA_PATH, {}),
         (PROGRESO_SEMANA_PATH, {}),
+        (PROGRESO_TURNO_PATH, {}),  # <-- asegura acumulado
     ]:
         if not os.path.exists(path):
             _save_json(path, default)
