@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Bot de Tránsito - Modo Webhook (Flask)
-- Callbacks con .split("_")[-1]
-- md_escape() en mensajes Markdown
+Bot de Tránsito - Webhook (Flask)
+- Callbacks robustos con .split("_")[-1]
+- md_escape() en dinámicos
 - P3: Acumulado por turno por chat (progreso_turno.json) y resumen multi-línea
-- P4: No mostrar clave en flujo de tránsito (sólo en 👁 Ver y en el banner)
+- P4: No mostrar clave en tránsito (solo en 👁 Ver y banner)
+- Reporte elegante por lote: WhatsApp + Copiar texto
 
 ENV:
 - BOT_TOKEN
@@ -19,6 +20,7 @@ import threading
 from datetime import datetime
 from flask import Flask, request, jsonify
 import requests
+import urllib.parse  # <- para WhatsApp
 
 # =========================
 # Configuración
@@ -27,7 +29,7 @@ TOKEN_TELEGRAM = os.getenv("BOT_TOKEN", "REEMPLAZA_AQUI_EL_TOKEN_EN_DESARROLLO")
 API_URL = f"https://api.telegram.org/bot{TOKEN_TELEGRAM}"
 SECRET_TOKEN = os.getenv("SECRET_TOKEN_WEBHOOK", None)
 
-# Persistencia
+# Persistencia (si luego usas Render Disk, apunta a /data/*.json)
 CATALOGO_SKUS_PATH    = "catalogo_skus.json"
 CONFIG_TURNO_PATH     = "config_turno.json"
 ORDENES_SEMANA_PATH   = "ordenes_semana.json"
@@ -104,7 +106,6 @@ def _save_json(path, data):
         with _json_lock:
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-            # reemplazo atómico
             if os.path.exists(path):
                 os.replace(tmp, path)
             else:
@@ -131,7 +132,6 @@ def mes_en(idx):  # 1..12
 def sumar_meses(dt, meses):
     y = dt.year + (dt.month - 1 + meses) // 12
     m = (dt.month - 1 + meses) % 12 + 1
-    # día 15 fijo
     return datetime(y, m, 15, dt.hour, dt.minute)
 
 def calcular_vencimiento(fecha_prod, vida_util_meses):
@@ -183,35 +183,25 @@ def generar_clave_envase(llenadora, mercado, sku, vida_util_meses, fecha_ref=Non
     yy = ahora.year % 100
     hhmm = ahora.strftime("%H:%M")
     ddd = dia_juliano(ahora)
-
-    # línea 1 (incluye hora)
     if llenadora == "Chub":
-        letra = letra_chub if letra_chub else "—"  # pendiente
+        letra = letra_chub if letra_chub else "—"
     else:
         letra = LETRA_LLENADORA.get(llenadora, "—")
     linea1 = f"{letra} {hhmm} {yy:02d} L {ddd}"
-
-    # vencimiento
     venc = calcular_vencimiento(ahora, vida_util_meses)
     yy_v = venc.year % 100
     if mercado == "FDA":
-        mes_txt = mes_en(venc.month)
-        pref = "BEST BY"
+        mes_txt = mes_en(venc.month); pref = "BEST BY"
     else:
-        mes_txt = mes_es(venc.month)
-        pref = "EXP"
+        mes_txt = mes_es(venc.month); pref = "EXP"
     linea2 = f"{pref} 15 {mes_txt} {yy_v:02d}"
-
-    # SKU final
     linea3 = f"6173 {sku}"
-
     return f"{linea1}\n{linea2}\n{linea3}"
 
 # =========================
 # Telegram helpers
 # =========================
 def md_escape(texto: str) -> str:
-    # Escapa caracteres problemáticos para Markdown básico
     return (str(texto)
             .replace('_', r'\_')
             .replace('*', r'\*')
@@ -233,6 +223,27 @@ def teclado_inline(filas):
     return {"inline_keyboard": filas}
 
 # =========================
+# Helpers Reporte Elegante (WhatsApp)
+# =========================
+def reporte_elegante_lote(ll, producto, medida, mercado, cajas):
+    bandera = "🇬🇹" if mercado == "RTCA" else "🇺🇸"
+    # formato amigable (sin separador de miles local por compatibilidad)
+    if isinstance(cajas, (int, float)) and float(cajas).is_integer():
+        cajas_fmt = f"{int(cajas):,}".replace(",", ",")
+    else:
+        cajas_fmt = f"{cajas:,.1f}".replace(",", ",")
+    return (
+        "Tránsito 🧾\n\n"
+        f"⚙️ {ll}\n"
+        f"{producto} {medida} {mercado} {bandera}\n"
+        f"{cajas_fmt} cajas 📦"
+    )
+
+def boton_whatsapp(texto):
+    url = "https://wa.me/?text=" + urllib.parse.quote(texto)
+    return {"text": "🟢 Compartir por WhatsApp", "url": url}
+
+# =========================
 # Banner y menús
 # =========================
 def banner_estado_llenadoras(chat_id: int) -> str:
@@ -243,11 +254,9 @@ def banner_estado_llenadoras(chat_id: int) -> str:
     def fmt(ll: str) -> str:
         combo = estado_ll.get(ll)
         if combo and all(k in combo for k in ("producto", "medida", "mercado")):
-            # Generamos clave aquí, SÓLO para banner
             k = combo_key(combo["producto"], combo["medida"], combo["mercado"])
             cat = catalogo.get(k, {})
-            sku = cat.get("sku")
-            vida = cat.get("vida_util_meses")
+            sku = cat.get("sku"); vida = cat.get("vida_util_meses")
             if sku and vida:
                 clave = generar_clave_envase(ll, combo["mercado"], sku, vida)
                 return (
@@ -277,13 +286,11 @@ def mostrar_menu_carga(chat_id):
     filas = [
         [{"text": "➕ Cargar", "callback_data": "carga_nuevo"},
          {"text": "👁 Ver",   "callback_data": "carga_ver"}],
-        # (Más adelante añadiremos Editar/Borrar/Reset aquí)
         [{"text": "⬅️ Volver", "callback_data": "volver_menu"}]
     ]
     send_msg(chat_id, "📦 Carga de datos — elige una opción:", teclado_inline(filas))
 
 def iniciar_carga(chat_id):
-    # Paso 1: Llenadora
     filas = [
         [{"text": "M1", "callback_data": "c_n_ll_M1"},
          {"text": "M2", "callback_data": "c_n_ll_M2"}],
@@ -335,8 +342,7 @@ def carga_ver(chat_id):
             p, m, me = combo["producto"], combo["medida"], combo["mercado"]
             k = combo_key(p,m,me)
             cat = catalogo.get(k, {})
-            sku = cat.get("sku")
-            vida = cat.get("vida_util_meses")
+            sku = cat.get("sku"); vida = cat.get("vida_util_meses")
             if sku and vida:
                 clave = generar_clave_envase(ll, me, sku, vida)
                 lineas.append(
@@ -376,12 +382,9 @@ def mostrar_llenadoras_transito(chat_id):
 
 def mostrar_teclado_pin(chat_id, cantidad, medida):
     sugerido = pin_sugerido_para_medida(medida)
-    b_peq = "🔩 Pin Pequeño"
-    b_gra = "🔩 Pin Grande"
-    if sugerido == "pequeño":
-        b_peq = "⭐ " + b_peq
-    elif sugerido == "grande":
-        b_gra = "⭐ " + b_gra
+    b_peq = "🔩 Pin Pequeño"; b_gra = "🔩 Pin Grande"
+    if sugerido == "pequeño": b_peq = "⭐ " + b_peq
+    elif sugerido == "grande": b_gra = "⭐ " + b_gra
     filas = [[
         {"text": b_peq, "callback_data": "pin_pequeño"},
         {"text": b_gra, "callback_data": "pin_grande"},
@@ -392,29 +395,13 @@ def mostrar_teclado_pin(chat_id, cantidad, medida):
     texto += "🔧 Selecciona el tamaño del pin:"
     send_msg(chat_id, texto, teclado_inline(filas), parse_mode="Markdown")
 
-def mostrar_teclado_otro_lote(chat_id, estado, prefijo_texto=""):
-    """Versión sin clave ni botón 'ver_clave'."""
-    txt = prefijo_texto.strip()
-    filas = [[
-        {"text": "✅ Sí", "callback_data": "otro_si"},
-        {"text": "❌ No", "callback_data": "otro_no"},
-    ]]
-    if txt:
-        txt += "\n\n"
-    txt += "➕ ¿Deseas agregar otro lote?"
-    send_msg(chat_id, txt, teclado_inline(filas), parse_mode=None)
-
 def construir_resumen_desde_progreso(chat_id):
     prog = get_progreso_turno().get(str(chat_id), {})
     lotes = prog.get("lotes", [])
     if not lotes:
         return "No hay lotes acumulados en este turno."
-
-    por_llenadora = {}
-    total_cajas = 0.0
-    total_canastas = 0
+    por_llenadora = {}; total_cajas = 0.0; total_canastas = 0
     lineas = ["✅ *Resumen del turno (todas las líneas):*"]
-
     for idx, r in enumerate(lotes, 1):
         llenadora = r.get("llenadora","—")
         canastas  = int(r.get("canastas",0))
@@ -422,16 +409,11 @@ def construir_resumen_desde_progreso(chat_id):
         producto  = r.get("producto","—")
         medida    = r.get("medida","—")
         mercado   = r.get("mercado","—")
-
         por_pin = CAJAS_POR_CANASTA.get(medida, {}).get(pin, 0)
         cajas = canastas * por_pin
-
         d = por_llenadora.setdefault(llenadora, {"cajas": 0.0, "canastas": 0})
-        d["cajas"] += cajas
-        d["canastas"] += canastas
-        total_cajas += cajas
-        total_canastas += canastas
-
+        d["cajas"] += cajas; d["canastas"] += canastas
+        total_cajas += cajas; total_canastas += canastas
         lineas.append(
             f"\n📦 *Lote {idx}*\n"
             f"🔹 Llenadora: {md_escape(llenadora)}\n"
@@ -442,30 +424,15 @@ def construir_resumen_desde_progreso(chat_id):
             f"📦 Cajas: *{int(cajas) if isinstance(cajas,(int,float)) and float(cajas).is_integer() else f'{cajas:.1f}'}* "
             f"(≈ {int(por_pin) if isinstance(por_pin,(int,float)) and float(por_pin).is_integer() else por_pin} x canasta)"
         )
-
-    lineas.append("\n— — —")
-    lineas.append("*Totales por llenadora*:")
+    lineas.append("\n— — —"); lineas.append("*Totales por llenadora*:")
     for ll, d in por_llenadora.items():
         cajas_fmt = int(d["cajas"]) if d["cajas"].is_integer() else f"{d['cajas']:.1f}"
         lineas.append(f"• {md_escape(ll)} → 🧺 {d['canastas']} | 📦 {cajas_fmt}")
-
     total_fmt = int(total_cajas) if total_cajas.is_integer() else f"{total_cajas:.1f}"
     lineas.append("\n*Totales generales:*")
     lineas.append(f"🧺 Canastas: *{total_canastas}*")
     lineas.append(f"📦 Cajas: *{total_fmt}*")
-
     return "\n".join(lineas)
-
-def reporte_elegante_lote(ll, producto, medida, mercado, cajas):
-    bandera = "🇬🇹" if mercado == "RTCA" else "🇺🇸"
-    cajas_fmt = f"{int(cajas):,}".replace(",", ",") if float(cajas).is_integer() else f"{cajas:,.1f}".replace(",", ",")
-    # Texto corto, sin Markdown (para WhatsApp se pega plano)
-    return (
-        "Tránsito 🧾\n\n"
-        f"⚙️ {ll}\n"
-        f"{producto} {medida} {mercado} {bandera}\n"
-        f"{cajas_fmt} cajas 📦"
-    )
 
 # =========================
 # Handlers de updates
@@ -476,15 +443,13 @@ def handle_message(message):
     estado = estados_usuarios.get(chat_id)
 
     if texto in ("/start", "/menu"):
-        mostrar_menu(chat_id)
-        return
+        mostrar_menu(chat_id); return
 
     # Paso cantidad (tránsito)
     if estado and estado.get("paso") == "t_cantidad":
         try:
             cantidad = int(texto)
-            if cantidad <= 0:
-                raise ValueError
+            if cantidad <= 0: raise ValueError
             estado["canastas"] = cantidad
             ll = estado.get("llenadora")
 
@@ -494,36 +459,31 @@ def handle_message(message):
                 medida = cfg.get(ll, {}).get("medida","")
                 if not pin_es_valido(medida, estado["pin"]):
                     send_msg(chat_id, f"⚠️ Configuración inconsistente: {md_escape(medida)} no admite pin {md_escape(estado['pin'])}. Corrige la medida en Carga de datos.", parse_mode="Markdown")
-                    estados_usuarios.pop(chat_id, None)
-                    return
+                    estados_usuarios.pop(chat_id, None); return
                 estado["paso"] = "t_otro"
-                mostrar_teclado_otro_lote(
-                    chat_id, estado,
-                    f"✅ Canastas: {cantidad}\nPin asignado automáticamente: {md_escape('único')} 🔩"
-                )
+                send_msg(chat_id, f"✅ Canastas: {cantidad}\nPin asignado automáticamente: {md_escape('único')} 🔩", parse_mode="Markdown")
+                send_msg(chat_id, "➕ ¿Deseas agregar otro lote?", teclado_inline([
+                    [{"text":"✅ Sí","callback_data":"otro_si"},{"text":"❌ No","callback_data":"otro_no"}]
+                ]), parse_mode=None)
             elif ll == "M3":
                 estado["pin"] = "grande"
                 cfg = get_config_turno().get(str(chat_id), {})
                 medida = cfg.get(ll, {}).get("medida","")
                 if not pin_es_valido(medida, estado["pin"]):
                     send_msg(chat_id, f"⚠️ Configuración inconsistente: {md_escape(medida)} no admite pin {md_escape(estado['pin'])}. Corrige la medida en Carga de datos.", parse_mode="Markdown")
-                    estados_usuarios.pop(chat_id, None)
-                    return
+                    estados_usuarios.pop(chat_id, None); return
                 estado["paso"] = "t_otro"
-                mostrar_teclado_otro_lote(
-                    chat_id, estado,
-                    f"✅ Canastas: {cantidad}\nPin asignado automáticamente: {md_escape('grande')} 🔩"
-                )
+                send_msg(chat_id, f"✅ Canastas: {cantidad}\nPin asignado automáticamente: {md_escape('grande')} 🔩", parse_mode="Markdown")
+                send_msg(chat_id, "➕ ¿Deseas agregar otro lote?", teclado_inline([
+                    [{"text":"✅ Sí","callback_data":"otro_si"},{"text":"❌ No","callback_data":"otro_no"}]
+                ]), parse_mode=None)
             else:
-                # M1/M2 pedir pin
                 estado["paso"] = "t_pin"
                 cfg = get_config_turno().get(str(chat_id), {})
                 medida = cfg.get(ll, {}).get("medida","—")
                 mostrar_teclado_pin(chat_id, cantidad, medida)
-
         except ValueError:
             send_msg(chat_id, "❗ Ingresa un número válido de canastas (entero positivo).", parse_mode=None)
-
 
 def handle_callback(cq):
     chat_id = cq["message"]["chat"]["id"]
@@ -531,6 +491,7 @@ def handle_callback(cq):
     answer_callback(cq["id"])
     estado = estados_usuarios.get(chat_id)
 
+    # --- Menú principal ---
     if data == "transito":
         estados_usuarios[chat_id] = {"paso": "t_ll"}
         mostrar_llenadoras_transito(chat_id)
@@ -549,7 +510,7 @@ def handle_callback(cq):
 
     # ----- Carga de datos -----
     elif data.startswith("c_n_ll_"):
-        ll = data.split("_")[-1]  # M1/M2/M3/Chub
+        ll = data.split("_")[-1]
         estados_usuarios[chat_id] = {"paso":"carga_producto", "tmp":{"llenadora": ll}}
         send_msg(chat_id, f"✅ Llenadora: {md_escape(ll)}\n\nElige *producto*:", teclado_productos(), parse_mode="Markdown")
 
@@ -570,27 +531,20 @@ def handle_callback(cq):
     elif data.startswith("c_n_me_"):
         me = data.split("_")[-1]
         if estado and estado.get("paso") == "carga_mercado":
-            tmp = estado["tmp"]
-            tmp["mercado"] = me
+            tmp = estado["tmp"]; tmp["mercado"] = me
             p, m, me_val = tmp["producto"], tmp["medida"], tmp["mercado"]
             k = combo_key(p,m,me_val)
-            catalogo = get_catalogo()
-            cat = catalogo.get(k)
+            catalogo = get_catalogo(); cat = catalogo.get(k)
             if not cat or "sku" not in cat or "vida_util_meses" not in cat:
                 send_msg(chat_id, f"⚠️ Este combo no existe en catálogo o está incompleto:\n{md_escape(k)}\nAgrega *sku* y *vida_util_meses* en {md_escape(CATALOGO_SKUS_PATH)} y vuelve a intentar.", parse_mode="Markdown")
                 estados_usuarios.pop(chat_id, None)
             else:
-                cfg = get_config_turno()
-                por_chat = cfg.get(str(chat_id), {})
+                cfg = get_config_turno(); por_chat = cfg.get(str(chat_id), {})
                 por_chat[tmp["llenadora"]] = {"producto": p, "medida": m, "mercado": me_val}
-                cfg[str(chat_id)] = por_chat
-                set_config_turno(cfg)
-
-                # Mostrar clave SOLO aquí (carga de datos)
+                cfg[str(chat_id)] = por_chat; set_config_turno(cfg)
                 clave = generar_clave_envase(tmp["llenadora"], me_val, cat["sku"], cat["vida_util_meses"])
                 send_msg(chat_id, f"✅ Configuración guardada para *{md_escape(tmp['llenadora'])}* → {md_escape(p)} {md_escape(m)} {md_escape(me_val)}\n\n🔑 Clave (ahora):\n```\n{clave}\n```", parse_mode="Markdown")
-                estados_usuarios.pop(chat_id, None)
-                mostrar_menu(chat_id)
+                estados_usuarios.pop(chat_id, None); mostrar_menu(chat_id)
 
     # ----- Tránsito -----
     elif data.startswith("t_ll_"):
@@ -613,24 +567,24 @@ def handle_callback(cq):
             medida = cfg.get(ll, {}).get("medida","—")
             if not pin_es_valido(medida, pin):
                 send_msg(chat_id, f"⚠️ El pin *{md_escape(pin)}* no es válido para {md_escape(medida)}.", parse_mode="Markdown")
-                mostrar_teclado_pin(chat_id, estado.get("canastas"), medida)
-                return
-            estado["pin"] = pin
-            estado["paso"] = "t_otro"
-            mostrar_teclado_otro_lote(chat_id, estado, f"✅ Pin: {md_escape(pin)}")
+                mostrar_teclado_pin(chat_id, estado.get("canastas"), medida); return
+            estado["pin"] = pin; estado["paso"] = "t_otro"
+            send_msg(chat_id, f"✅ Pin: {md_escape(pin)}", parse_mode="Markdown")
+            send_msg(chat_id, "➕ ¿Deseas agregar otro lote?", teclado_inline([
+                [{"text":"✅ Sí","callback_data":"otro_si"},{"text":"❌ No","callback_data":"otro_no"}]
+            ]), parse_mode=None)
 
-    elif data.startswith("otro_"):
-        # Confirmación del lote actual: guardar en acumulado y mostrar resumen del turno (sin claves)
+    elif data in ("otro_si","otro_no"):
+        # Confirmación del lote actual: guardar en acumulado y mostrar acciones (WhatsApp/Copiar)
         if estado and estado.get("paso") in ("t_otro","t_pin","t_cantidad"):
             ll = estado.get("llenadora")
-            cfg_all = get_config_turno()
-            cfg = cfg_all.get(str(chat_id), {})
+            cfg_all = get_config_turno(); cfg = cfg_all.get(str(chat_id), {})
             combo = cfg.get(ll, {})
             if not (ll and "canastas" in estado and "pin" in estado and combo):
                 send_msg(chat_id, "⚠️ Faltan datos para cerrar el lote.", parse_mode=None)
-                estados_usuarios.pop(chat_id, None)
-                return
+                estados_usuarios.pop(chat_id, None); return
 
+            # Persistir lote
             lote = {
                 "ts": datetime.now().isoformat(timespec="seconds"),
                 "llenadora": ll,
@@ -642,14 +596,51 @@ def handle_callback(cq):
             }
             append_lote_turno(chat_id, lote)
 
+            # Cajas de este lote (para el reporte elegante)
+            por_pin = CAJAS_POR_CANASTA.get(combo.get("medida","—"), {}).get(estado["pin"], 0)
+            cajas_lote = int(estado["canastas"]) * por_pin
+            txt_elegante = reporte_elegante_lote(
+                ll=ll,
+                producto=combo.get("producto","—"),
+                medida=combo.get("medida","—"),
+                mercado=combo.get("mercado","—"),
+                cajas=cajas_lote,
+            )
+            # Guardamos para "copiar texto"
+            if estado is not None:
+                estado["ultimo_reporte_elegante"] = txt_elegante
+
+            # Mostrar botones de acción (WhatsApp/Copiar/No enviar)
+            filas = [
+                [boton_whatsapp(txt_elegante)],
+                [
+                    {"text":"📋 Copiar texto","callback_data":"copiar_reporte"},
+                    {"text":"❌ No enviar","callback_data":"no_enviar"}
+                ]
+            ]
+            send_msg(chat_id, "¿Deseas enviar este resumen al grupo?", {"inline_keyboard": filas}, parse_mode=None)
+
             if data == "otro_si":
                 estados_usuarios[chat_id] = {"paso":"t_ll"}
                 send_msg(chat_id, "✅ Lote registrado. Elige otra llenadora para continuar.", parse_mode=None)
                 mostrar_llenadoras_transito(chat_id)
             else:
+                # Resumen general del turno (sin claves)
                 texto = construir_resumen_desde_progreso(chat_id)
                 send_msg(chat_id, texto, parse_mode="Markdown")
                 estados_usuarios.pop(chat_id, None)
+
+    # --- Acciones de reporte elegante ---
+    elif data == "copiar_reporte":
+        if estado and "ultimo_reporte_elegante" in estado:
+            # En texto plano para copiar/pegar fácil
+            send_msg(chat_id, estado["ultimo_reporte_elegante"], parse_mode=None)
+            send_msg(chat_id, "✅ Reporte listo para copiar y pegar en WhatsApp.", parse_mode=None)
+        else:
+            send_msg(chat_id, "No encontré un reporte listo para copiar. Genera uno cerrando un lote.", parse_mode=None)
+
+    elif data == "no_enviar":
+        send_msg(chat_id, "Operación cancelada.", parse_mode=None)
 
 # =========================
 # Flask app
@@ -658,7 +649,6 @@ app = Flask(__name__)
 
 @app.route("/health", methods=["GET"])
 def health():
-    # Diagnóstico: cuántas entradas tiene el catálogo
     cat = get_catalogo()
     return jsonify({"status": "ok", "catalogo_entries": len(cat)}), 200
 
@@ -685,7 +675,7 @@ def ensure_files():
         (CONFIG_TURNO_PATH, {}),
         (ORDENES_SEMANA_PATH, {}),
         (PROGRESO_SEMANA_PATH, {}),
-        (PROGRESO_TURNO_PATH, {}),  # asegura acumulado
+        (PROGRESO_TURNO_PATH, {}),
     ]:
         if not os.path.exists(path):
             _save_json(path, default)
