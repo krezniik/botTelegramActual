@@ -456,6 +456,17 @@ def construir_resumen_desde_progreso(chat_id):
 
     return "\n".join(lineas)
 
+def reporte_elegante_lote(ll, producto, medida, mercado, cajas):
+    bandera = "🇬🇹" if mercado == "RTCA" else "🇺🇸"
+    cajas_fmt = f"{int(cajas):,}".replace(",", ",") if float(cajas).is_integer() else f"{cajas:,.1f}".replace(",", ",")
+    # Texto corto, sin Markdown (para WhatsApp se pega plano)
+    return (
+        "Tránsito 🧾\n\n"
+        f"⚙️ {ll}\n"
+        f"{producto} {medida} {mercado} {bandera}\n"
+        f"{cajas_fmt} cajas 📦"
+    )
+
 # =========================
 # Handlers de updates
 # =========================
